@@ -1,0 +1,10 @@
+name: picard
+channels:
+ - conda-forge
+ - bioconda
+dependencies:
+ - picard
+ - samtools
+ - bcftools
+ - vcftools
+ - tabix

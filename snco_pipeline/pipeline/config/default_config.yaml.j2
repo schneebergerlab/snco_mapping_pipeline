@@ -1,0 +1,40 @@
+# PIPELINE INPUT/OUTPUT
+
+# annotation files defined below will be located relative to annotation dir
+annotation_dir: "{{ annotation_dir | default('annotations') }}"
+annotations:
+    fasta_fns:
+      # a fasta file is required for all genotypes that are listed as either parent1 or parent2 in the datasets section
+      {{ parent1_name | default('col0')}}: "{{ parent1_name | default('col0')}}.fa"
+      {{ parent2_name | default('ler')}}: "{{ parent2_name | default('ler')}}.fa"
+    gtf_fns:
+      # a gtf file is required for all genotypes that are listed as reference_genotypes
+      {{ parent1_name | default('col0')}}: "{{ parent1_name | default('col0')}}.gtf"
+    barcode_whitelist_fns:
+      # barcode whitelists for various single cell data types
+      {{ single_cell_method | default('10x_rna_v4') }}: {{ barcode_whitelist_fns }}
+
+
+# input fastq files will be searched for within this directory
+raw_data_dir: "{{ raw_data_dir | default('raw_data')}}"
+# sample ids and sample specific information
+datasets:
+  {{ dataset_name | default('example_dataset') }}:
+    technology: "{{ single_cell_method | default('10x_rna_v4')}}"
+    reference_genotype: "{{ reference_genotype | default('col0')}}"
+    genotypes:
+      # you can add one or more different genotypes that have been pooled in the dataset
+      {{ dataset_genotype_name | default('col0xler')}}:
+        parent1: "{{ parent1_name | default('col0')}}"
+        parent2: "{{ parent2_name | default('ler')}}"
+
+# results will be created within this dir
+results_dir: "{{ results_dir |  default('results')}}"
+
+### PIPELINE PARAMS:
+
+variants:
+  max_indel_size: 50
+
+alignment:
+  sj_overhang: 150

@@ -1,0 +1,35 @@
+from snco_pipeline.pipeline_utils import (
+    annotations_getter, raw_data_getter, results_getter,
+    fasta_getter, gtf_getter, barcode_whitelist_getter
+)
+
+annotation = annotations_getter(config)
+raw_data = raw_data_getter(config)
+results = results_getter(config)
+get_fasta = fasta_getter(config)
+get_gtf = gtf_getter(config)
+get_barcode_whitelist = barcode_whitelist_getter(config)
+
+genotypes = set()
+for ds in config['datasets'].values():
+    genotypes.update(list(ds['genotypes']))
+
+wildcard_constraints:
+    cond='|'.join(config['datasets']),
+    sample_name='(' + '|'.join(config['datasets']) + ')_([a-zA-Z0-9])+',
+    ref='\w+',
+    qry='\w+',
+    geno='|'.join(genotypes),
+
+
+include: "rules/variants.snakefile"
+include: "rules/align.snakefile"
+include: "rules/haplotype.snakefile"
+
+rule all:
+    input:
+        expand(
+            results('haplotypes/{cond}.{file_type}.json'),
+            cond=config['datasets'],
+            file_type=['markers', 'pred'],
+        )
