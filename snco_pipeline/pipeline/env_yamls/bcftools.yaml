@@ -1,7 +1,8 @@
-name: picard
+name: bcftools
 channels:
  - conda-forge
  - bioconda
 dependencies:
- - picard
+ - bcftools
  - samtools
+ - tabix

@@ -51,11 +51,11 @@ rule filter_informative_reads:
         bai=results('aligned_data/{cond}.filtered.bam.bai'),
         cb_whitelist=results('aligned_data/{cond}.initial_whitelist.txt')
     conda:
-        '../env_yamls/pysam.yaml'
+        '../env_yamls/bcftools.yaml'
     params:
         filter_tag=get_filter_tag,
-        min_informative_reads_per_cb=100,
-        bc_len=lambda wc: 16 if config['datasets'][wc.cond]['technology'] != 'bd' else 29
+        min_informative_reads_per_cb=config['haplotyping']['min_informative_reads_per_barcode'],
+        bc_len=lambda wc: 16 if config['datasets'][wc.cond]['technology'] != 'bd_rna' else 28
     resources:
         mem_mb=20_000
     shell:
@@ -129,6 +129,8 @@ rule run_haplotyping:
         bin_size=25_000,
         genotyping_params=get_genotyping_params,
         tech_specific_params=get_tech_specific_params,
+        min_reads_per_cb=config['haplotyping']['min_informative_reads_per_barcode'],
+        min_reads_per_chrom=config['haplotyping']['min_informative_reads_per_chrom'],
     threads: 32
     resources:
         mem_mb=100_000
@@ -138,8 +140,8 @@ rule run_haplotyping:
           --cb-whitelist-fn {input.cb_whitelist} \
           -N {params.bin_size} \
           {params.tech_specific_params} \
-          --min-markers-per-cb 100 \
-          --min-markers-per-chrom 20 \
+          --min-markers-per-cb {params.min_reads_per_cb} \
+          --min-markers-per-chrom {params.min_reads_per_chrom} \
           --batch-size 128 \
           {params.genotyping_params} \
           -o "haplotypes/{wildcards.cond}" \

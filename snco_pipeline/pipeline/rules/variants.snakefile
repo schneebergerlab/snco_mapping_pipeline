@@ -38,13 +38,21 @@ rule run_syri:
         vcf=annotation('vcf/syri/{ref}.{qry}.syri.vcf'),
         syri=annotation('vcf/syri/{ref}.{qry}.syri.out'),
     resources:
-        mem_mb=lambda wc, threads: 2048 * threads,
+        mem_mb=lambda wc, threads: 1024 * threads,
     conda:
         '../env_yamls/msyd.yaml'
+    params:
+        filter_alns='' if config['variants']['syri']['use_loq_qual_filters'] else '-f'
     shell:
         '''
-        syri -F B -f --hdrseq --dir annotation/vcf/syri --prefix {wildcards.ref}.{wildcards.qry}. \
-          -c {input.bam} -q {input.qry} -r {input.ref} --samplename {wildcards.qry}
+        syri -F B --hdrseq \
+          {params.filter_alns} \
+          --dir annotation/vcf/syri \
+          --prefix {wildcards.ref}.{wildcards.qry}. \
+          -c {input.bam} \
+          -q {input.qry} \
+          -r {input.ref} \
+          --samplename {wildcards.qry}
         '''
 
 
@@ -57,9 +65,16 @@ rule filter_syri_snps_for_star_consensus:
         '../env_yamls/snco.yaml'
     resources:
         mem_mb=30_000
+    params:
+        max_hdr_length=config['variants']['star_consensus']['max_hdr_length']
+        max_indel_size=config['variants']['star_consensus']['max_indel_size']
     shell:
         '''
-        syri_vcf_to_stardiploid.py -M0 -i50 -n {wildcards.qry} {input} {output}
+        syri_vcf_to_stardiploid.py \
+          -M{params.max_hdr_length} \
+          -i{params.max_indel_size} \
+          -n {wildcards.qry} \
+          {input} {output}
         '''
 
 
@@ -107,7 +122,11 @@ rule run_msyd:
         '../env_yamls/msyd.yaml'
     shell:
         '''
-        msyd call --core -i {input.cfg} -r {input.ref_fasta} -o {output.pff} -m {output.vcf}
+        msyd call --core \
+          -i {input.cfg} \
+          -r {input.ref_fasta} \
+          -o {output.pff} \
+          -m {output.vcf}
         '''
 
 
@@ -117,7 +136,7 @@ rule filter_msyd_snps_for_star_consensus:
     output:
         vcf=annotation('vcf/star_consensus/msyd/{geno_group}.{qry}.vcf'),
     conda:
-        '../env_yamls/pysam.yaml'
+        '../env_yamls/bcftools.yaml'
     params:
         max_indel_size=config['variants']['max_indel_size'],
     shell:

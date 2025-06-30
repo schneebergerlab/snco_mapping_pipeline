@@ -1,3 +1,7 @@
+import math
+import gzip
+from glob import glob
+
 def get_star_index_input(wc):
     input_ = {
         'fasta': get_fasta(wc.ref),
@@ -12,6 +16,33 @@ def get_star_index_input(wc):
     return input_
 
 
+def get_read_length(fastq_fn):
+    with gzip.open(fastq_fn) as f:
+        next(f) # skip first read id
+        first_read_seq = next(f).decode().strip()
+    return len(first_read_seq)
+
+
+def get_sj_overhang_size(wc):
+    fastq_fns = glob(
+        raw_data('{sample_name}.2.fastq.gz')
+    )
+    max_overhang = 0
+    for fq_fn in fastq_fns:
+        max_overhang = max(max_overhang, get_read_length(fq_fn))
+    return max_overhang - 1
+
+
+def calculate_genome_sa_index_nbases(wc, input):
+    fai_path = str(input.fasta) + '.fai'
+    total_length = 0
+    with open(fai_path) as f:
+        for line in f:
+            _, ln, *_ = line.strip().split('\t')
+            total_length += int(ln)
+    return min(14, math.floor(math.log2(total_length) / 2 - 1))
+
+
 rule build_STAR_index:
     '''Create the index required for alignment with STAR'''
     input:
@@ -22,8 +53,8 @@ rule build_STAR_index:
     resources:
         mem_mb=12 * 1024,
     params:
-        overhang=150, # todo, determine from data
-        genome_sa_index_nbases=12, # todo, determine from data
+        overhang=get_sj_overhang_size,
+        genome_sa_index_nbases=calculate_genome_sa_index_nbases,
         vcf_flag=lambda wc, input: f'--genomeTransformVCF {input.vcf}' if hasattr(input, 'vcf') else '',
         transform_flag=lambda wc, input: '--genomeTransformType Haploid' if hasattr(input, 'vcf') else '',
     conda:
@@ -43,6 +74,7 @@ rule build_STAR_index:
           --genomeSAindexNbases {params.genome_sa_index_nbases} \
           --sjdbOverhang {params.overhang}
         '''
+
 
 def get_geno_group(wc):
     dataset = config['datasets'][wc.cond]
@@ -90,21 +122,10 @@ def STAR_consensus_input(wc):
     return input_
 
 
-def get_barcode_read_length(barcode_fastq_fn):
-    import gzip
-    with gzip.open(barcode_fastq_fn) as f:
-        try:
-            next(f) # skip first read id
-        except StopIteration:
-            return 16
-        first_read_seq = next(f).decode().strip()
-    return len(first_read_seq)
-
-
 def get_adapter_parameters(wc, input):
     tech_type = config['datasets'][wc.cond]['technology']
     whitelist = ' '.join(f'${{TOPDIR}}/{fn}' for fn in input.barcode_whitelist)
-    barcode_read_length = get_barcode_read_length(input.barcode[0])
+    barcode_read_length = get_read_length(input.barcode[0])
     if tech_type == '10x_atac':
         params = f'''\
           --soloType "CB_samTagOut" \
@@ -117,19 +138,19 @@ def get_adapter_parameters(wc, input):
           --soloType "CB_UMI_Simple" \
           --soloCBwhitelist {whitelist} \
           --soloBarcodeReadLength {barcode_read_length} \
-          --soloUMIdedup "1MM_Directional_UMItools" \
+          --soloUMIdedup {config["alignment"]["star"]["rna_align_intron_max"]} \
           --soloCBmatchWLtype "1MM" \
           --soloCBlen 16 \
           --soloCBstart 1 \
           --soloUMIlen 12 \
           --soloUMIstart 17 \
         '''
-    elif tech_type == 'bd':
+    elif tech_type == 'bd_rna':
         params = f'''\
           --soloType "CB_UMI_Complex" \
           --soloCBwhitelist {whitelist} \
           --soloBarcodeReadLength {barcode_read_length} \
-          --soloUMIdedup "1MM_Directional_UMItools" \
+          --soloUMIdedup {config["alignment"]["star"]["rna_align_intron_max"]} \
           --soloAdapterSequence "NNNNNNNNNGTGANNNNNNNNNGACA" \
           --soloCBmatchWLtype "1MM" \
           --soloCBposition 2_0_2_8 2_13_2_21 3_1_3_9 \
@@ -175,12 +196,12 @@ def get_spliced_alignment_params(wc):
           --alignMatesGapMax 500 \
         '''
     else:
-        return '''\
+        return f'''\
           --outFilterIntronMotifs RemoveNoncanonical \
           --alignSJoverhangMin 12 \
           --alignSJDBoverhangMin 4 \
-          --alignIntronMin 60 \
-          --alignIntronMax 20000 \
+          --alignIntronMin {config["alignment"]["star"]["rna_align_intron_min"]} \
+          --alignIntronMax {config["alignment"]["star"]["rna_align_intron_max"]} \
         '''
 
 
@@ -195,6 +216,8 @@ rule STAR_consensus:
         transform_flag=get_transform_flag,
         adapter_parameters=get_adapter_parameters,
         splicing_parameters=get_spliced_alignment_params,
+        filter_multimap_nmax=config['alignment']['star']['filter_multimap_nmax'],
+        filter_mismatch_nmax=config['alignment']['star']['filter_mismatch_nmax'],
         sort_mem=lambda wc, resources: (resources.mem_mb - 4096) * 1_000_000,
         n_files=lambda wc, threads: threads * 150 + 200,
     log:
@@ -218,8 +241,8 @@ rule STAR_consensus:
           {params.input_flag} \
           {params.adapter_parameters} \
           {params.splicing_parameters} \
-          --outFilterMultimapNmax 1 \
-          --outFilterMismatchNmax 4 \
+          --outFilterMultimapNmax {params.filter_multimap_nmax} \
+          --outFilterMismatchNmax {params.filter_mismatch_nmax} \
           --outSAMtype "BAM" "SortedByCoordinate" \
           --outBAMsortingBinsN 150 \
           --limitBAMsortRAM {params.sort_mem} \

@@ -1,4 +1,4 @@
-# PIPELINE INPUT/OUTPUT
+### PIPELINE INPUT/OUTPUT
 
 # annotation files defined below will be located relative to annotation dir
 annotation_dir: "{{ annotation_dir | default('annotations') }}"
@@ -34,7 +34,23 @@ results_dir: "{{ results_dir |  default('results')}}"
 ### PIPELINE PARAMS:
 
 variants:
-  max_indel_size: 50
+  minimap2:
+    preset: "asm10"
+    zdrop: "500" # can be a single int or pair of ints, see minimap manual
+  syri:
+    use_low_qual_filters: False # whether to use syris default filtering
+  star_consensus:
+    max_hdr_length: 0 # the maximum size of syri HDRs to try to resolve to snps/indels
+    max_indel_size: 50
 
 alignment:
-  sj_overhang: 150
+  star:
+    rna_umi_dedup_method: "1MM_Directional_UMItools"
+    rna_align_intron_min: 60
+    rna_align_intron_max: 20000
+    filter_multimap_nmax: 1
+    filter_mismatch_nmax: 4
+
+haplotyping:
+  min_informative_reads_per_barcode: 100
+  min_informative_reads_per_chrom: 20
