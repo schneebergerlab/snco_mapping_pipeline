@@ -10,7 +10,7 @@ Pipeline tool for mapping reads for crossover analysis with snco
 
 ### Initialise config
 
-    snco_pipeline init-config
+    snco_pipeline init
 
 This creates a `config.yaml` in your current directory, prompting you to fill in required fields.
 
@@ -21,11 +21,3 @@ This creates a `config.yaml` in your current directory, prompting you to fill in
 You can pass any Snakemake arguments (e.g. `--profile`, `--use-conda`, etc.):
 
     snco_pipeline run --cores 4 --use-conda --rerun-incomplete
-
-You can also override config values inline:
-
-    snco_pipeline run --set outfile=test.txt
-
-## Example output
-
-The default pipeline just touches an output file defined in the config.
