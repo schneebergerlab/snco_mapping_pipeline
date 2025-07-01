@@ -1,4 +1,4 @@
-import glob
+from glob import glob
 
 include: './align_common.snakefile'
 
@@ -8,9 +8,9 @@ for cond in config['datasets']:
     # config only stores cond -> sample_name_glob relationship
     # use globbing to determine the sample_name -> cond relationship
     sample_names = glob_wildcards(
-        raw_data(f'{{sample_name}}{config["file_suffixes"]["read1"]}')
+        raw_data(f'{{sample_name}}{config["file_suffixes"]["read1"]}'),
         files=get_star_fastq_input(cond, 'read1')
-    )
+    ).sample_name
     for sn in sample_names:
         COND_SAMPLE_NAME_MAPPING[sn] = cond
 
@@ -21,11 +21,10 @@ def STAR_consensus_input(wc):
     tech_type = dataset['technology']
     ref_name = dataset['reference_genotype']
     geno_group = get_geno_group(cond)
-    return = {
+    return {
         'index': annotation(f'star_indexes/{geno_group}/{ref_name}.{{qry}}.star_idx'),
-        'barcode_whitelist': get_barcode_whitelist(tech_type),
-        'read': raw_data(f'{{sample_name}}{config["file_suffixes"]["read1"]}',
-        'mate': raw_data(f'{{sample_name}}{config["file_suffixes"]["read2"]}',
+        'read': raw_data(f'{{sample_name}}{config["file_suffixes"]["read1"]}'),
+        'mate': raw_data(f'{{sample_name}}{config["file_suffixes"]["read2"]}'),
     }
 
 
@@ -49,15 +48,13 @@ rule STAR_consensus:
     input:
         unpack(STAR_consensus_input)
     output:
-        bam=temp(results('aligned_data/single_barcodes/haploid/{cond}.{qry}.sorted.bam')),
+        bam=temp(results('aligned_data/single_barcodes/haploid/{sample_name}.{qry}.sorted.bam')),
     params:
         star_tmp_dir=get_temp_dir,
-        input_flag=get_input_flags,
         transform_flag=get_transform_flag,
-        adapter_parameters=get_adapter_parameters,
-        splicing_parameters=get_spliced_alignment_params,
         filter_multimap_nmax=config['alignment']['star']['filter_multimap_nmax'],
         filter_mismatch_nmax=config['alignment']['star']['filter_mismatch_nmax'],
+        align_mates_gap_max=config['alignment']['star']['atac']['mates_gap_max'],
     log:
         progress=results('logs/{sample_name}.{qry}.STAR_progress.log'),
         final=results('logs/{sample_name}.{qry}.STAR_final.log'),
@@ -167,16 +164,16 @@ rule collapse_alignments:
           -T ${{TMPDIR}}/{wildcards.sample_name} \
           -o {output.bam} -
         # add sample_name as read group to 
-        samtools index {output}
-        rm {output}.unsorted.bam
+        samtools index {output.bam}
+        rm {output.bam}.unsorted.bam
         '''
 
 
 def merge_samples_input(wc):
     sample_names = glob_wildcards(
-        raw_data(f'{{sample_name}}{config["file_suffixes"]["read1"]}')
-        files=get_star_fastq_input(cond, 'read1')
-    )
+        raw_data(f'{{sample_name}}{config["file_suffixes"]["read1"]}'),
+        files=get_star_fastq_input(wc.cond, 'read1')
+    ).sample_name
     return expand(
         results('aligned_data/single_barcodes/{sample_name}.sorted.bam'),
         sample_name=sample_names
@@ -187,8 +184,8 @@ rule merge_samples:
     input:
         bams=merge_samples_input
     output:
-        bam=results('aligned_data/{cond}.sorted.bam')
-        bam=results('aligned_data/{cond}.sorted.bai')
+        bam=results('aligned_data/{cond}.sorted.bam'),
+        bai=results('aligned_data/{cond}.sorted.bam.bai')
     resources:
         mem_mb=20_000,
     threads: 12
@@ -197,4 +194,5 @@ rule merge_samples:
     shell:
         '''
         samtools merge -@ {threads} {output.bam} {input.bams}
+        samtools index {output.bam}
         '''

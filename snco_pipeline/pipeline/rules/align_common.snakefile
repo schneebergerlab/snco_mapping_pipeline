@@ -1,6 +1,6 @@
 import math
 import gzip
-import glob
+from glob import glob
 
 def get_star_index_input(wc):
     input_ = {

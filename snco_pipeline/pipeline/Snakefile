@@ -25,10 +25,8 @@ wildcard_constraints:
 
 
 tech_types = set([ds['technology'] for ds in config['datasets'].values()])
-if tech_types.intersection(['takara_dna', 'plate_wgs']):
-    is_plate_based = True
-if tech_types.intersection(['10x_rna_v4', '10x_rna_v3', 'bd_rna', '10x_atac']):
-    is_droplet_based = True
+is_plate_based = tech_types.intersection(['takara_dna', 'plate_wgs'])
+is_droplet_based = tech_types.intersection(['10x_rna_v4', '10x_rna_v3', 'bd_rna', '10x_atac'])
 if is_plate_based and is_droplet_based:
     raise ValueError('Cannot mix droplet and plate technologies in the same run, please separate to different configs.')
 

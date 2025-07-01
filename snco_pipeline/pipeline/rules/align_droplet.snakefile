@@ -8,7 +8,7 @@ include: './align_common.snakefile'
 
 rule cell_barcode_rc:
     input:
-        barcode=raw_data(f'{{sample_name}}{config["file_suffixes"]["atac"]["barcode"]}'),
+        barcode=raw_data(f'{{sample_name}}{config["file_suffixes"]["barcode"]}'),
     output:
         barcode=raw_data('{sample_name}.bc_rc.fastq.gz'),
     conda:
@@ -24,9 +24,12 @@ def STAR_consensus_input(wc):
     tech_type = dataset['technology']
     ref_name = dataset['reference_genotype']
     geno_group = get_geno_group(wc.cond)
+    barcode_whitelist = get_barcode_whitelist(tech_type)
+    if isinstance(barcode_whitelist, str):
+        barcode_whitelist = [barcode_whitelist,]
     input_ = {
         'index': annotation(f'star_indexes/{geno_group}/{ref_name}.{{qry}}.star_idx'),
-        'barcode_whitelist': get_barcode_whitelist(tech_type),
+        'barcode_whitelist': barcode_whitelist,
     }
     if tech_type == "10x_atac":
         input_['read'] = get_star_fastq_input(wc.cond, 'read1')
