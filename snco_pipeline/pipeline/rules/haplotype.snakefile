@@ -100,8 +100,8 @@ def get_tech_specific_params(wc):
           --no-clean-bg \
        '''
     else:
-        tech_type == '10x_rna' if tech_type.startswith('10x_rna') else 'bd_rna'
-        params = f'''
+        tech_type = '10x_rna' if tech_type.startswith('10x_rna') else 'bd_rna'
+        params = f'''\
           -x {tech_type} \
           -y haploid \
           --cb-tag CB \

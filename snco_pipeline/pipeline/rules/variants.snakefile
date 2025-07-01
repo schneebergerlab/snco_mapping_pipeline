@@ -14,11 +14,17 @@ rule minimap2_wga:
         12
     resources:
         mem_mb=lambda wc, threads: 1024 * threads,
+    params:
+        preset=config['variants']['minimap2']['preset'],
+        zdrop=config['variants']['minimap2']['zdrop'],
     conda:
         '../env_yamls/minimap2.yaml'
     shell:
         '''
-        minimap2 --eqx -t 8 -ax asm10 -z500 {input.ref} {input.qry} | \
+        minimap2 --eqx -t {threads} \
+          -ax {params.preset} \
+          -z{params.zdrop} \
+          {input.ref} {input.qry} | \
         samtools view -bS | \
         samtools sort -o - - > {output}
         samtools index {output}
@@ -42,7 +48,7 @@ rule run_syri:
     conda:
         '../env_yamls/msyd.yaml'
     params:
-        filter_alns='' if config['variants']['syri']['use_loq_qual_filters'] else '-f'
+        filter_alns='' if config['variants']['syri']['use_low_qual_filters'] else '-f'
     shell:
         '''
         syri -F B --hdrseq \
@@ -66,7 +72,7 @@ rule filter_syri_snps_for_star_consensus:
     resources:
         mem_mb=30_000
     params:
-        max_hdr_length=config['variants']['star_consensus']['max_hdr_length']
+        max_hdr_length=config['variants']['star_consensus']['max_hdr_length'],
         max_indel_size=config['variants']['star_consensus']['max_indel_size']
     shell:
         '''
@@ -138,7 +144,7 @@ rule filter_msyd_snps_for_star_consensus:
     conda:
         '../env_yamls/bcftools.yaml'
     params:
-        max_indel_size=config['variants']['max_indel_size'],
+        max_indel_size=config['variants']['star_consensus']['max_indel_size'],
     shell:
         r'''
         bcftools annotate \

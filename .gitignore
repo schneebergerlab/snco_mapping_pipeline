@@ -1,3 +1,6 @@
+# annotations (they're too big
+snco_pipeline/pipeline/annotations/*.txt
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]

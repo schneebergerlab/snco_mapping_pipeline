@@ -76,6 +76,19 @@ rule build_STAR_index:
         '''
 
 
+rule cell_barcode_rc:
+    input:
+        barcode=raw_data(f'{{sample_name}}{config["file_suffixes"]["atac"]["barcode"]}'),
+    output:
+        barcode=raw_data('{sample_name}.bc_rc.fastq.gz'),
+    conda:
+        '../env_yamls/seqtk.yaml'
+    shell:
+        '''
+        seqtk seq -r {input.barcode} | bgzip > {output.barcode}
+        '''
+
+
 def get_geno_group(wc):
     dataset = config['datasets'][wc.cond]
     ref = dataset['reference_genotype']
@@ -88,18 +101,11 @@ def get_geno_group(wc):
     return f'{ref}_{qry_names}'
 
 
-def sample_name_subset(cond):
-    sample_names = glob_wildcards(
-        raw_data('{sample_name}.1.fastq.gz')
-    ).sample_name
-    cond_sample_names = [sn for sn in sample_names if sn.rsplit('_', 1)[0] == cond]
-    return sorted(cond_sample_names)
-
-
-def expand_sample_name_from_cond(wc, pattern):
+def get_star_fastq_input(cond, dtype, fastq_type):
     return expand(
-        pattern,
-        sample_name=sample_name_subset(wc.cond)
+        raw_data('{sample_name}{file_suffix}'),
+        sample_name=config['datasets'][cond]['input_file_basenames'],
+        file_suffix=config['file_suffixes'][dtype][fastq_type]
     )
 
 
@@ -113,18 +119,21 @@ def STAR_consensus_input(wc):
         'barcode_whitelist': get_barcode_whitelist(tech_type),
     }
     if tech_type == "10x_atac":
-        input_['read'] = raw_data(expand_sample_name_from_cond(wc, '{sample_name}.1.fastq.gz'))
-        input_['mate'] = raw_data(expand_sample_name_from_cond(wc, '{sample_name}.2.fastq.gz'))
-        input_['barcode'] = raw_data(expand_sample_name_from_cond(wc, '{sample_name}.bc.fastq.gz'))
+        input_['read'] = get_star_fastq_input(wc.cond, 'atac', 'read1')
+        input_['mate'] = get_star_fastq_input(wc.cond, 'atac', 'read2')
+        if config['preprocessing']['atac_rev_comp_barcode']:
+            input_['barcode'] = get_star_fastq_input(wc.cond, 'atac', 'barcode_rc')
+        else:
+            input_['barcode'] = get_star_fastq_input(wc.cond, 'atac', 'barcode')
     else:
-        input_['read'] = raw_data(expand_sample_name_from_cond(wc, '{sample_name}.2.fastq.gz'))
-        input_['barcode'] = raw_data(expand_sample_name_from_cond(wc, '{sample_name}.1.fastq.gz'))
+        input_['read'] = get_star_fastq_input(wc.cond, 'rna', 'read2')
+        input_['barcode'] = get_star_fastq_input(wc.cond, 'rna', 'read1')
     return input_
 
 
 def get_adapter_parameters(wc, input):
     tech_type = config['datasets'][wc.cond]['technology']
-    whitelist = ' '.join(f'${{TOPDIR}}/{fn}' for fn in input.barcode_whitelist)
+    whitelist = ' '.join(f'${{RELPATH}}/{fn}' for fn in input.barcode_whitelist)
     barcode_read_length = get_read_length(input.barcode[0])
     if tech_type == '10x_atac':
         params = f'''\
@@ -193,7 +202,7 @@ def get_spliced_alignment_params(wc):
     if tech_type == "10x_atac":
         return '''\
           --alignIntronMax 1 \
-          --alignMatesGapMax 500 \
+          --alignMatesGapMax {config["alignment"]["star"]["atac"]["mates_gap_max"]} \
         '''
     else:
         return f'''\
@@ -237,7 +246,7 @@ rule STAR_consensus:
         ulimit -n {params.n_files}
         STAR \
           --runThreadN {threads} \
-          --genomeDir "$RELPATH/{input.index}" \
+          --genomeDir "${{RELPATH}}/{input.index}" \
           {params.input_flag} \
           {params.adapter_parameters} \
           {params.splicing_parameters} \
