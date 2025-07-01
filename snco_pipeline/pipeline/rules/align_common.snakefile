@@ -25,8 +25,8 @@ def get_read_length(fastq_fn):
 
 def get_sj_overhang_size(wc):
     fastq_fns = glob(
-        raw_data('{sample_name}.2.fastq.gz')
-    )
+        raw_data(f'*{config["file_suffixes"]["read2"]}')
+    )[:5] # just check a few random files or this gets slow
     max_overhang = 0
     for fq_fn in fastq_fns:
         max_overhang = max(max_overhang, get_read_length(fq_fn))
