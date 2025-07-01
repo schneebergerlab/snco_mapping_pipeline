@@ -97,7 +97,7 @@ def get_tech_specific_params(wc):
     tech_type = config['datasets'][wc.cond]['technology']
     ploidy = config['datasets'][wc.cond]['ploidy']
     if tech_type == "10x_atac":
-        params = '''
+        params = '''\
           -x 10x_atac \
           -y {ploidy} \
           --cb-tag CB \
@@ -109,7 +109,7 @@ def get_tech_specific_params(wc):
        '''
     elif tech_type in ("takara_dna", "plate_wgs"):
         tech_type = "wgs" if tech_type == "plate_wgs" else tech_type
-        params = f'''
+        params = f'''\
           -x {tech_type} \
           -y {ploidy} \
           --cb-tag RG \
