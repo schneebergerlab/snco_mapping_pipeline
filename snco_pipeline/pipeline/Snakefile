@@ -3,6 +3,7 @@ from snco_pipeline.pipeline_utils import (
     fasta_getter, gtf_getter, barcode_whitelist_getter
 )
 
+
 annotation = annotations_getter(config)
 raw_data = raw_data_getter(config)
 results = results_getter(config)
@@ -10,21 +11,35 @@ get_fasta = fasta_getter(config)
 get_gtf = gtf_getter(config)
 get_barcode_whitelist = barcode_whitelist_getter(config)
 
+
 genotypes = set()
 for ds in config['datasets'].values():
     genotypes.update(list(ds['genotypes']))
 
+
 wildcard_constraints:
     cond='|'.join(config['datasets']),
-    sample_name='(' + '|'.join(config['datasets']) + ')_([a-zA-Z0-9])+',
     ref='\w+',
     qry='\w+',
     geno='|'.join(genotypes),
 
 
+tech_types = set([ds['technology'] for ds in config['datasets'].values()])
+if tech_types.intersection(['takara_dna', 'plate_wgs']):
+    is_plate_based = True
+if tech_types.intersection(['10x_rna_v4', '10x_rna_v3', 'bd_rna', '10x_atac']):
+    is_droplet_based = True
+if is_plate_based and is_droplet_based:
+    raise ValueError('Cannot mix droplet and plate technologies in the same run, please separate to different configs.')
+
+
 include: "rules/variants.snakefile"
-include: "rules/align.snakefile"
+if is_plate_based:
+    include: "rules/align_plate.snakefile"
+else:
+    include: "rules/align_droplet.snakefile"
 include: "rules/haplotype.snakefile"
+
 
 rule all:
     input:

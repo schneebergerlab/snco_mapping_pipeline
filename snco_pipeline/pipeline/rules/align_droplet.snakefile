@@ -2,78 +2,8 @@ import math
 import gzip
 from glob import glob
 
-def get_star_index_input(wc):
-    input_ = {
-        'fasta': get_fasta(wc.ref),
-        'gtf': get_gtf(wc.ref),
-    }
 
-    if wc.ref != wc.qry:
-        if len(wc.geno_group.split('_')) > 2:
-            input_['vcf'] = annotation('vcf/star_consensus/msyd/{geno_group}.{qry}.vcf')
-        else:
-            input_['vcf'] = annotation('vcf/star_consensus/syri/{ref}.{qry}.vcf')
-    return input_
-
-
-def get_read_length(fastq_fn):
-    with gzip.open(fastq_fn) as f:
-        next(f) # skip first read id
-        first_read_seq = next(f).decode().strip()
-    return len(first_read_seq)
-
-
-def get_sj_overhang_size(wc):
-    fastq_fns = glob(
-        raw_data('{sample_name}.2.fastq.gz')
-    )
-    max_overhang = 0
-    for fq_fn in fastq_fns:
-        max_overhang = max(max_overhang, get_read_length(fq_fn))
-    return max_overhang - 1
-
-
-def calculate_genome_sa_index_nbases(wc, input):
-    fai_path = str(input.fasta) + '.fai'
-    total_length = 0
-    with open(fai_path) as f:
-        for line in f:
-            _, ln, *_ = line.strip().split('\t')
-            total_length += int(ln)
-    return min(14, math.floor(math.log2(total_length) / 2 - 1))
-
-
-rule build_STAR_index:
-    '''Create the index required for alignment with STAR'''
-    input:
-        unpack(get_star_index_input)
-    output:
-        directory(annotation('star_indexes/{geno_group}/{ref}.{qry}.star_idx'))
-    threads: 12
-    resources:
-        mem_mb=12 * 1024,
-    params:
-        overhang=get_sj_overhang_size,
-        genome_sa_index_nbases=calculate_genome_sa_index_nbases,
-        vcf_flag=lambda wc, input: f'--genomeTransformVCF {input.vcf}' if hasattr(input, 'vcf') else '',
-        transform_flag=lambda wc, input: '--genomeTransformType Haploid' if hasattr(input, 'vcf') else '',
-    conda:
-        '../env_yamls/star.yaml'
-    shell:
-        '''
-        mkdir {output}
-        STAR \
-          --outTmpDir _STARtmp_{wildcards.geno_group}.{wildcards.ref}.{wildcards.qry} \
-          --runThreadN {threads} \
-          --runMode genomeGenerate \
-          --genomeDir {output} \
-          --genomeFastaFiles {input.fasta} \
-          --sjdbGTFfile {input.gtf} \
-          {params.vcf_flag} \
-          {params.transform_flag} \
-          --genomeSAindexNbases {params.genome_sa_index_nbases} \
-          --sjdbOverhang {params.overhang}
-        '''
+include: './align_common.snakefile'
 
 
 rule cell_barcode_rc:
@@ -89,45 +19,25 @@ rule cell_barcode_rc:
         '''
 
 
-def get_geno_group(wc):
-    dataset = config['datasets'][wc.cond]
-    ref = dataset['reference_genotype']
-    qry_names = set()
-    for geno in dataset['genotypes'].values():
-        for qry in geno.values():
-            if qry != ref:
-                qry_names.add(qry)
-    qry_names = '_'.join(sorted(qry_names))
-    return f'{ref}_{qry_names}'
-
-
-def get_star_fastq_input(cond, dtype, fastq_type):
-    return expand(
-        raw_data('{sample_name}{file_suffix}'),
-        sample_name=config['datasets'][cond]['input_file_basenames'],
-        file_suffix=config['file_suffixes'][dtype][fastq_type]
-    )
-
-
 def STAR_consensus_input(wc):
     dataset = config['datasets'][wc.cond]
     tech_type = dataset['technology']
     ref_name = dataset['reference_genotype']
-    geno_group = get_geno_group(wc)
+    geno_group = get_geno_group(wc.cond)
     input_ = {
         'index': annotation(f'star_indexes/{geno_group}/{ref_name}.{{qry}}.star_idx'),
         'barcode_whitelist': get_barcode_whitelist(tech_type),
     }
     if tech_type == "10x_atac":
-        input_['read'] = get_star_fastq_input(wc.cond, 'atac', 'read1')
-        input_['mate'] = get_star_fastq_input(wc.cond, 'atac', 'read2')
-        if config['preprocessing']['atac_rev_comp_barcode']:
-            input_['barcode'] = get_star_fastq_input(wc.cond, 'atac', 'barcode_rc')
+        input_['read'] = get_star_fastq_input(wc.cond, 'read1')
+        input_['mate'] = get_star_fastq_input(wc.cond, 'read2')
+        if config['preprocessing']['atac']['rev_comp_barcode']:
+            input_['barcode'] = get_star_fastq_input(wc.cond, 'barcode_rc')
         else:
-            input_['barcode'] = get_star_fastq_input(wc.cond, 'atac', 'barcode')
+            input_['barcode'] = get_star_fastq_input(wc.cond, 'barcode')
     else:
-        input_['read'] = get_star_fastq_input(wc.cond, 'rna', 'read2')
-        input_['barcode'] = get_star_fastq_input(wc.cond, 'rna', 'read1')
+        input_['read'] = get_star_fastq_input(wc.cond, 'read2')
+        input_['barcode'] = get_star_fastq_input(wc.cond, 'read1')
     return input_
 
 
@@ -147,7 +57,7 @@ def get_adapter_parameters(wc, input):
           --soloType "CB_UMI_Simple" \
           --soloCBwhitelist {whitelist} \
           --soloBarcodeReadLength {barcode_read_length} \
-          --soloUMIdedup {config["alignment"]["star"]["rna_align_intron_max"]} \
+          --soloUMIdedup {config["alignment"]["star"]["rna"]["umi_dedup_method"]} \
           --soloCBmatchWLtype "1MM" \
           --soloCBlen 16 \
           --soloCBstart 1 \
@@ -159,7 +69,7 @@ def get_adapter_parameters(wc, input):
           --soloType "CB_UMI_Complex" \
           --soloCBwhitelist {whitelist} \
           --soloBarcodeReadLength {barcode_read_length} \
-          --soloUMIdedup {config["alignment"]["star"]["rna_align_intron_max"]} \
+          --soloUMIdedup {config["alignment"]["star"]["rna"]["umi_dedup_method"]} \
           --soloAdapterSequence "NNNNNNNNNGTGANNNNNNNNNGACA" \
           --soloCBmatchWLtype "1MM" \
           --soloCBposition 2_0_2_8 2_13_2_21 3_1_3_9 \
@@ -207,10 +117,10 @@ def get_spliced_alignment_params(wc):
     else:
         return f'''\
           --outFilterIntronMotifs RemoveNoncanonical \
-          --alignSJoverhangMin 12 \
-          --alignSJDBoverhangMin 4 \
-          --alignIntronMin {config["alignment"]["star"]["rna_align_intron_min"]} \
-          --alignIntronMax {config["alignment"]["star"]["rna_align_intron_max"]} \
+          --alignSJoverhangMin {config["alignment"]["star"]["rna"]["align_sj_overhang_min"]} \
+          --alignSJDBoverhangMin {config["alignment"]["star"]["rna"]["align_sjdb_overhang_min"]} \
+          --alignIntronMin {config["alignment"]["star"]["rna"]["align_intron_min"]} \
+          --alignIntronMax {config["alignment"]["star"]["rna"]["align_intron_max"]} \
         '''
 
 

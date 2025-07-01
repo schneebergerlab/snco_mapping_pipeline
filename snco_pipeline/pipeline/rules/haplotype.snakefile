@@ -43,6 +43,13 @@ def get_filter_tag(wc):
     return ','.join(sorted(all_haplos))
 
 
+def get_cb_tag_id(wc):
+    tech_type = config['datasets'][wc.cond]['technology']
+    if tech_type in ('takara_dna', 'plate_wgs'):
+        return 'RG'
+    else:
+        return 'CB'
+
 rule filter_informative_reads:
     input:
         unpack(filter_input)
@@ -54,19 +61,19 @@ rule filter_informative_reads:
         '../env_yamls/bcftools.yaml'
     params:
         filter_tag=get_filter_tag,
+        cb_tag=get_cb_tag_id,
         min_informative_reads_per_cb=config['haplotyping']['min_informative_reads_per_barcode'],
-        bc_len=lambda wc: 16 if config['datasets'][wc.cond]['technology'] != 'bd_rna' else 28
     resources:
         mem_mb=20_000
     shell:
         '''
         samtools view -b \
-          -e '[ha] != "{params.filter_tag}" && [CB] != "-"' \
+          -e '[ha] != "{params.filter_tag}" && [{params.cb_tag}] != "-"' \
           {input.bam} \
         > {output.bam}
         samtools index {output.bam}
-        samtools view --keep-tag "CB" {output.bam} | \
-        awk '{{cb_count[substr($12, 6, {params.bc_len})]++}} \
+        samtools view --keep-tag "{params.cb_tag}" {output.bam} | \
+        awk '{{cb_count[substr($12, 6)]++}} \
              END {{for (cb in cb_count) \
                  {{if (cb_count[cb] > {params.min_informative_reads_per_cb}) \
                  {{print cb}}}}}}' \
@@ -88,11 +95,24 @@ def get_genotyping_params(wc):
 
 def get_tech_specific_params(wc):
     tech_type = config['datasets'][wc.cond]['technology']
+    ploidy = config['datasets'][wc.cond]['ploidy']
     if tech_type == "10x_atac":
         params = '''
           -x 10x_atac \
-          -y haploid \
+          -y {ploidy} \
           --cb-tag CB \
+          --hap-tag ha \
+          --hap-tag-type "multi_haplotype" \
+          --cb-correction-method "exact" \
+          --umi-collapse-method "none" \
+          --no-clean-bg \
+       '''
+    elif tech_type in ("takara_dna", "plate_wgs"):
+        tech_type = "wgs" if tech_type == "plate_wgs" else tech_type
+        params = f'''
+          -x {tech_type} \
+          -y {ploidy} \
+          --cb-tag RG \
           --hap-tag ha \
           --hap-tag-type "multi_haplotype" \
           --cb-correction-method "exact" \
@@ -103,7 +123,7 @@ def get_tech_specific_params(wc):
         tech_type = '10x_rna' if tech_type.startswith('10x_rna') else 'bd_rna'
         params = f'''\
           -x {tech_type} \
-          -y haploid \
+          -y {ploidy} \
           --cb-tag CB \
           --umi-tag UB \
           --hap-tag ha \

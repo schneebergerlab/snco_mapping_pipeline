@@ -24,6 +24,8 @@ BARCODE_WHITELIST_FNS = {
     '10x_rna_v3': ['3M-february-2018.txt',],
     '10x_atac': ['737K-cratac-v1.txt',],
     'bd_rna': ['BD_CLS1.txt', 'BD_CLS2.txt', 'BD_CLS3.txt'],
+    'takara_dna': None,
+    'plate_wgs': None,
 }
 
 if not SNAKEFILE.exists():
@@ -63,7 +65,7 @@ def init_config(destination, force):
             context[var] = value
 
     tech_type = context.get('single_cell_method', '10x_rna_v4')
-    context['barcode_whitelist_fns'] = str(BARCODE_WHITELIST_FNS[tech_type])
+    context['barcode_whitelist_fns'] = str(BARCODE_WHITELIST_FNS.get(tech_type, None))
 
     # Render and write output
     template = env.get_template(template_name)
@@ -76,12 +78,6 @@ def init_config(destination, force):
         if not os.path.exists(dir_name):
             click.echo(f'Creating {directory}: {dir_name}')
             os.mkdir(dir_name)
-    annot_dir = config['annotation_dir']
-    barcode_whitelist_fns = [ANNOTATIONS_DIR / fn for fn in BARCODE_WHITELIST_FNS[tech_type]]
-    for fn in barcode_whitelist_fns:
-        click.echo(f'copying barcode file {fn} to {annot_dir}')
-        shutil.copy(fn, annot_dir)
-
 
 
 @cli.command("run", context_settings={"ignore_unknown_options": True, "allow_extra_args": True})
