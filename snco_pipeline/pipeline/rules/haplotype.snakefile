@@ -108,9 +108,9 @@ def get_tech_specific_params(wc):
           --no-clean-bg \
        '''
     elif tech_type in ("takara_dna", "plate_wgs"):
-        tech_type = "wgs" if tech_type == "plate_wgs" else tech_type
+        x_flag = "wgs" if tech_type == "plate_wgs" else tech_type
         params = f'''\
-          -x {tech_type} \
+          -x {x_flag} \
           --no-validate \
           -y {ploidy} \
           --cb-tag RG \
@@ -119,7 +119,9 @@ def get_tech_specific_params(wc):
           --cb-correction-method "exact" \
           --umi-collapse-method "none" \
           --no-clean-bg \
-       '''
+        '''
+        if tech_type == 'plate_wgs':
+            params += '--no-predict-doublets'
     else:
         tech_type = '10x_rna' if tech_type.startswith('10x_rna') else 'bd_rna'
         params = f'''\

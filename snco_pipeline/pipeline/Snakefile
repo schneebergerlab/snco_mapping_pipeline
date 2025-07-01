@@ -15,7 +15,8 @@ ref_genotypes = set()
 genotypes = set()
 for ds in config['datasets'].values():
     ref_genotypes.add(ds['reference_genotype'])
-    genotypes.update(list(ds['genotypes']))
+    for geno in ds['genotypes'].values():
+        genotypes.update(list(geno.values()))
 
 
 wildcard_constraints:
