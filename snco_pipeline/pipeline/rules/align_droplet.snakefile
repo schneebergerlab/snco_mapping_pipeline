@@ -191,7 +191,7 @@ rule sort_bam_by_name:
     resources:
         mem_mb=20_000,
     conda:
-        '../env_yamls/snco.yaml'
+        '../env_yamls/htslib.yaml'
     shell:
         '''
         samtools sort -n -@ {threads} {input.bam} > {output.bam}
@@ -219,7 +219,7 @@ rule merge_name_sorted_bams:
     resources:
         mem_mb=lambda wildcards, threads: threads * 1024,
     conda:
-        '../env_yamls/snco.yaml'
+        '../env_yamls/htslib.yaml'
     shell:
         '''
         samtools merge -@ {threads} -n {output.bam} {input.bams}

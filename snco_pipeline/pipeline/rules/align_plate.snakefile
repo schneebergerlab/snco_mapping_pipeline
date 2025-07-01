@@ -106,7 +106,7 @@ rule sort_bam_by_name:
     resources:
         mem_mb=20_000,
     conda:
-        '../env_yamls/snco.yaml'
+        '../env_yamls/htslib.yaml'
     shell:
         '''
         samtools sort -n -@ {threads} {input.bam} > {output.bam}
@@ -135,7 +135,7 @@ rule merge_name_sorted_hap_bams:
     resources:
         mem_mb=lambda wildcards, threads: threads * 1024,
     conda:
-        '../env_yamls/snco.yaml'
+        '../env_yamls/htslib.yaml'
     shell:
         '''
         samtools merge -@ {threads} -n {output.bam} {input.bams}
@@ -180,19 +180,27 @@ def merge_samples_input(wc):
     )
 
 
-rule merge_samples:
+rule list_bam:
     input:
         bams=merge_samples_input
     output:
+        txt=temp(results("{cond}.list"))
+    run:
+        with open(output.txt, 'w') as f:
+            f.write('\n'.join(input.bams))
+
+
+rule merge_bams:
+    input:
+        results("{cond}.list")
+    output:
         bam=results('aligned_data/{cond}.sorted.bam'),
-        bai=results('aligned_data/{cond}.sorted.bam.bai')
-    resources:
-        mem_mb=20_000,
-    threads: 12
+        bai=results('aligned_data/{cond}.sorted.bam.bai'),
     conda:
-        '../env_yamls/snco.yaml'
+        '../env_yamls/htslib.yaml'
+    threads: 48
     shell:
         '''
-        samtools merge -@ {threads} {output.bam} {input.bams}
-        samtools index {output.bam}
+        ulimit -n 5000
+        samtools merge -@ {threads} -b {input} --write-index -o {output.bam}
         '''

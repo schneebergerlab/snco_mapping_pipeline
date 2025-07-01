@@ -142,7 +142,7 @@ rule filter_msyd_snps_for_star_consensus:
     output:
         vcf=annotation('vcf/star_consensus/msyd/{geno_group}.{qry}.vcf'),
     conda:
-        '../env_yamls/bcftools.yaml'
+        '../env_yamls/htslib.yaml'
     params:
         max_indel_size=config['variants']['star_consensus']['max_indel_size'],
     shell:

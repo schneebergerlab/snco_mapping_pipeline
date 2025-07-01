@@ -58,7 +58,7 @@ rule filter_informative_reads:
         bai=results('aligned_data/{cond}.filtered.bam.bai'),
         cb_whitelist=results('aligned_data/{cond}.initial_whitelist.txt')
     conda:
-        '../env_yamls/bcftools.yaml'
+        '../env_yamls/htslib.yaml'
     params:
         filter_tag=get_filter_tag,
         cb_tag=get_cb_tag_id,
