@@ -132,6 +132,7 @@ rule STAR_consensus:
         unpack(STAR_consensus_input)
     output:
         bam=temp(results('aligned_data/haploid/{cond}.{qry}.sorted.bam')),
+        bai=temp(results('aligned_data/haploid/{cond}.{qry}.sorted.bam.bai')),
     params:
         star_tmp_dir=get_temp_dir,
         input_flag=get_input_flags,
@@ -240,11 +241,11 @@ rule collapse_alignments:
     shell:
         '''
         collapse_ha_specific_alns.py \
-          -o aligned_data/{wildcards.cond}.unsorted.bam {input.bam}
+          -o {output.bam}.unsorted.bam {input.bam}
         samtools sort -@ {threads} \
           -T ${{TMPDIR}}/{wildcards.cond} \
           -o {output.bam} \
-          aligned_data/{wildcards.cond}.unsorted.bam
+          {output.bam}.unsorted.bam
         samtools index {output}
-        rm aligned_data/{wildcards.cond}.unsorted.bam
+        rm {output.bam}.unsorted.bam
         '''

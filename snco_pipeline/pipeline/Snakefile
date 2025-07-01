@@ -11,16 +11,18 @@ get_fasta = fasta_getter(config)
 get_gtf = gtf_getter(config)
 get_barcode_whitelist = barcode_whitelist_getter(config)
 
-
+ref_genotypes = set()
 genotypes = set()
 for ds in config['datasets'].values():
+    ref_genotypes.add(ds['reference_genotype'])
     genotypes.update(list(ds['genotypes']))
 
 
 wildcard_constraints:
     cond='|'.join(config['datasets']),
-    ref='\w+',
-    qry='\w+',
+    sample_name="\w+",
+    ref='|'.join(ref_genotypes),
+    qry='|'.join(genotypes),
     geno='|'.join(genotypes),
 
 

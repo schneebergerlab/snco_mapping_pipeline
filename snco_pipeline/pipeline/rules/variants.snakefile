@@ -48,12 +48,13 @@ rule run_syri:
     conda:
         '../env_yamls/msyd.yaml'
     params:
-        filter_alns='' if config['variants']['syri']['use_low_qual_filters'] else '-f'
+        filter_alns='' if config['variants']['syri']['use_low_qual_filters'] else '-f',
+        out_dir=annotation('vcf/syri')
     shell:
         '''
         syri -F B --hdrseq \
           {params.filter_alns} \
-          --dir annotation/vcf/syri \
+          --dir {params.out_dir} \
           --prefix {wildcards.ref}.{wildcards.qry}. \
           -c {input.bam} \
           -q {input.qry} \

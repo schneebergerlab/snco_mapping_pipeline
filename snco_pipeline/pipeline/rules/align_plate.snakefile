@@ -72,6 +72,7 @@ rule STAR_consensus:
         STAR \
           --runThreadN {threads} \
           --genomeDir "${{RELPATH}}/{input.index}" \
+          --readFilesCommand "zcat" \
           --readFilesIn "${{RELPATH}}/{input.read}" "${{RELPATH}}/{input.mate}" \
           --alignIntronMax 1 \
           --alignMatesGapMax {params.align_mates_gap_max} \
@@ -156,10 +157,10 @@ rule collapse_alignments:
     shell:
         '''
         collapse_ha_specific_alns.py \
-          -o {output}.unsorted.bam {input.bam}
+          -o {output.bam}.unsorted.bam {input.bam}
         samtools addreplacerg  \
           -r "ID:{wildcards.sample_name}" \
-          {output}.unsorted.bam | \
+          {output.bam}.unsorted.bam | \
         samtools sort -@ {threads} \
           -T ${{TMPDIR}}/{wildcards.sample_name} \
           -o {output.bam} -
@@ -202,5 +203,6 @@ rule merge_bams:
     shell:
         '''
         ulimit -n 5000
-        samtools merge -@ {threads} -b {input} --write-index -o {output.bam}
+        samtools merge -@ {threads} -b {input} -o {output.bam}
+        samtools index {output.bam}
         '''
