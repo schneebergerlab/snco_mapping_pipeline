@@ -111,6 +111,7 @@ def get_tech_specific_params(wc):
         tech_type = "wgs" if tech_type == "plate_wgs" else tech_type
         params = f'''\
           -x {tech_type} \
+          --no-validate \
           -y {ploidy} \
           --cb-tag RG \
           --hap-tag ha \
@@ -151,6 +152,7 @@ rule run_haplotyping:
         tech_specific_params=get_tech_specific_params,
         min_reads_per_cb=config['haplotyping']['min_informative_reads_per_barcode'],
         min_reads_per_chrom=config['haplotyping']['min_informative_reads_per_chrom'],
+        output_prefix=lambda wc: results(f'haplotypes/{wc.cond}')
     threads: 32
     resources:
         mem_mb=100_000
@@ -164,6 +166,6 @@ rule run_haplotyping:
           --min-markers-per-chrom {params.min_reads_per_chrom} \
           --batch-size 128 \
           {params.genotyping_params} \
-          -o "haplotypes/{wildcards.cond}" \
+          -o {params.output_prefix} \
           {input.bam}
         '''
