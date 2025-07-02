@@ -98,9 +98,9 @@ rule build_STAR_index:
         '''
 
 
-def get_geno_group(cond):
+def get_geno_group(dataset_name):
     '''creates a geno_group wildcard from the config by joining together all the genotypes'''
-    dataset = config['datasets'][cond]
+    dataset = config['datasets'][dataset_name]
     ref = dataset['reference_genotype']
     qry_names = set()
     for geno in dataset['genotypes'].values():
@@ -111,11 +111,11 @@ def get_geno_group(cond):
     return f'{ref}_{qry_names}'
 
 
-def get_star_fastq_input(cond, fastq_type):
+def get_star_fastq_input(dataset_name, fastq_type):
     '''use globbing to identify all the input fastqs for a dataset from input_file_basenames'''
     fastq_fn_globs = expand(
         raw_data('{sample_name}{file_suffix}'),
-        sample_name=config['datasets'][cond]['input_file_basenames'],
+        sample_name=config['datasets'][dataset_name]['input_file_basenames'],
         file_suffix=config['file_suffixes'][fastq_type]
     )
     fastq_fns = []

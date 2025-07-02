@@ -29,10 +29,10 @@ def STAR_consensus_input(wc):
       - barcode_whitelist: the whitelist file(s) for the sequencing technology type
       - read, mate, barcode: the fastq files for the dataset - contains ALL cells/barcodes
     '''
-    dataset = config['datasets'][wc.cond]
+    dataset = config['datasets'][wc.dataset_name]
     tech_type = dataset['technology']
     ref_name = dataset['reference_genotype']
-    geno_group = get_geno_group(wc.cond)
+    geno_group = get_geno_group(wc.dataset_name)
     barcode_whitelist = get_barcode_whitelist(tech_type)
     if isinstance(barcode_whitelist, str):
         barcode_whitelist = [barcode_whitelist,]
@@ -41,15 +41,15 @@ def STAR_consensus_input(wc):
         'barcode_whitelist': barcode_whitelist,
     }
     if tech_type == "10x_atac":
-        input_['read'] = get_star_fastq_input(wc.cond, 'read1')
-        input_['mate'] = get_star_fastq_input(wc.cond, 'read2')
+        input_['read'] = get_star_fastq_input(wc.dataset_name, 'read1')
+        input_['mate'] = get_star_fastq_input(wc.dataset_name, 'read2')
         if config['preprocessing']['atac']['rev_comp_barcode']:
-            input_['barcode'] = get_star_fastq_input(wc.cond, 'barcode_rc')
+            input_['barcode'] = get_star_fastq_input(wc.dataset_name, 'barcode_rc')
         else:
-            input_['barcode'] = get_star_fastq_input(wc.cond, 'barcode')
+            input_['barcode'] = get_star_fastq_input(wc.dataset_name, 'barcode')
     else:
-        input_['read'] = get_star_fastq_input(wc.cond, 'read2')
-        input_['barcode'] = get_star_fastq_input(wc.cond, 'read1')
+        input_['read'] = get_star_fastq_input(wc.dataset_name, 'read2')
+        input_['barcode'] = get_star_fastq_input(wc.dataset_name, 'read1')
     return input_
 
 
@@ -57,7 +57,7 @@ def get_adapter_parameters(wc, input):
     '''
     Adapter parameters for the different sequencing modalities
     '''
-    tech_type = config['datasets'][wc.cond]['technology']
+    tech_type = config['datasets'][wc.dataset_name]['technology']
     whitelist = ' '.join(f'${{RELPATH}}/{fn}' for fn in input.barcode_whitelist)
     barcode_read_length = get_read_length(input.barcode[0])
     if tech_type == '10x_atac':
@@ -97,7 +97,7 @@ def get_adapter_parameters(wc, input):
 
 def get_transform_flag(wc):
     '''STAR genome transform flag - necessary if index has a VCF transformation'''
-    dataset = config['datasets'][wc.cond]
+    dataset = config['datasets'][wc.dataset_name]
     ref = dataset['reference_genotype']
     if wc.qry != ref:
         return '--genomeTransformOutput SAM'
@@ -107,11 +107,11 @@ def get_transform_flag(wc):
 
 def get_temp_dir(wc, output):
     '''
-    create a private directory for each cond/query combination, since STAR does not work well 
+    create a private directory for each dataset_name/query combination, since STAR does not work well 
     when multiple processes are run in the same directory
     '''
     output_dir = os.path.split(output.bam)[0]
-    tmp_dir = os.path.join(output_dir, f'{wc.cond}.{wc.qry}.tmpdir')
+    tmp_dir = os.path.join(output_dir, f'{wc.dataset_name}.{wc.qry}.tmpdir')
     return tmp_dir
 
 
@@ -119,12 +119,12 @@ def get_input_flags(wc, input):
     '''
     create flags for multiple input files, check if they are gzipped and add readFilesCommand
     '''
-    tech_type = config['datasets'][wc.cond]['technology']
-    all_fastqs = it.chain(
+    tech_type = config['datasets'][wc.dataset_name]['technology']
+    all_fastqs = it.chain(*(
         (input.read, input.mate.input.barcode)
         if tech_type == '10x_atac'
         else (input.read, input.barcode)
-    )
+    ))
     if all([fn.endswith('.gz') for fn in all_fastqs]):
         flag = '--readFilesCommand "zcat" --readFilesIn '
     else:
@@ -140,7 +140,7 @@ def get_input_flags(wc, input):
 
 def get_spliced_alignment_params(wc):
     '''splicing/fragment size parameters for STAR'''
-    tech_type = config['datasets'][wc.cond]['technology']
+    tech_type = config['datasets'][wc.dataset_name]['technology']
     if tech_type == "10x_atac":
         return f'''\
           --alignIntronMax 1 \
@@ -163,8 +163,8 @@ rule STAR_consensus:
     input:
         unpack(STAR_consensus_input)
     output:
-        bam=temp(results('aligned_data/haploid/{cond}.{qry}.sorted.bam')),
-        bai=temp(results('aligned_data/haploid/{cond}.{qry}.sorted.bam.bai')),
+        bam=temp(results('aligned_data/haploid/{dataset_name}.{qry}.sorted.bam')),
+        bai=temp(results('aligned_data/haploid/{dataset_name}.{qry}.sorted.bam.bai')),
     params:
         star_tmp_dir=get_temp_dir,
         input_flag=get_input_flags,
@@ -176,9 +176,9 @@ rule STAR_consensus:
         sort_mem=lambda wc, resources: (resources.mem_mb - 4096) * 1_000_000,
         n_files=lambda wc, threads: threads * 150 + 200,
     log:
-        progress=results('logs/{cond}.{qry}.STAR_progress.log'),
-        final=results('logs/{cond}.{qry}.STAR_final.log'),
-        main=results('logs/{cond}.{qry}.STAR.log')
+        progress=results('logs/{dataset_name}.{qry}.STAR_progress.log'),
+        final=results('logs/{dataset_name}.{qry}.STAR_final.log'),
+        main=results('logs/{dataset_name}.{qry}.STAR.log')
     threads: 24
     resources:
         mem_mb=lambda wildcards, threads: (threads + 4) * 2048,
@@ -221,9 +221,10 @@ rule sort_bam_by_name:
     name-sort the output of star consensus to ensure consistent order of read-ids across haplotypes
     '''
     input:
-        bam=results('aligned_data/haploid/{cond}.{qry}.sorted.bam')
+        bam=results('aligned_data/haploid/{dataset_name}.{qry}.sorted.bam'),
+        bai=results('aligned_data/haploid/{dataset_name}.{qry}.sorted.bam.bai')
     output:
-        bam=temp(results('aligned_data/haploid/{cond}.{qry}.namesorted.bam'))
+        bam=temp(results('aligned_data/haploid/{dataset_name}.{qry}.namesorted.bam'))
     threads: 12
     resources:
         mem_mb=20_000,
@@ -237,14 +238,14 @@ rule sort_bam_by_name:
 
 def get_merge_input(wc):
     '''Expand all haplotypes that have been aligned to for a dataset to create merge input'''
-    dataset = config['datasets'][wc.cond]
+    dataset = config['datasets'][wc.dataset_name]
     qrys = set()
     for geno in dataset['genotypes'].values():
         for qry in geno.values():
             qrys.add(qry)
     return {
-        'bams': expand(results('aligned_data/haploid/{cond}.{qry}.namesorted.bam'),
-                       cond=wc.cond, qry=qrys),
+        'bams': expand(results('aligned_data/haploid/{dataset_name}.{qry}.namesorted.bam'),
+                       dataset_name=wc.dataset_name, qry=qrys),
     }
 
 
@@ -255,7 +256,7 @@ rule merge_name_sorted_bams:
     input:
         unpack(get_merge_input)
     output:
-        bam=temp(results('aligned_data/{cond}.namesorted.bam')),
+        bam=temp(results('aligned_data/{dataset_name}.namesorted.bam')),
     threads: 24
     resources:
         mem_mb=lambda wildcards, threads: threads * 1024,
@@ -273,10 +274,10 @@ rule collapse_alignments:
     and outputs a single alignment with a new ha tag that indicates which haplotype(s) is/are best
     '''
     input:
-        bam=results('aligned_data/{cond}.namesorted.bam')
+        bam=results('aligned_data/{dataset_name}.namesorted.bam')
     output:
-        bam=results('aligned_data/{cond}.sorted.bam'),
-        bai=results('aligned_data/{cond}.sorted.bam.bai')
+        bam=results('aligned_data/{dataset_name}.sorted.bam'),
+        bai=results('aligned_data/{dataset_name}.sorted.bam.bai')
     resources:
         mem_mb=20_000,
     threads: 12
@@ -287,7 +288,7 @@ rule collapse_alignments:
         collapse_ha_specific_alns.py \
           -o {output.bam}.unsorted.bam {input.bam}
         samtools sort -@ {threads} \
-          -T ${{TMPDIR}}/{wildcards.cond} \
+          -T ${{TMPDIR}}/{wildcards.dataset_name} \
           -o {output.bam} \
           {output.bam}.unsorted.bam
         samtools index {output}

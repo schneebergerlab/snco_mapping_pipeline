@@ -39,3 +39,15 @@ def make_annotation_getter(config_key):
 fasta_getter = make_annotation_getter("annotations/fasta_fns")
 gtf_getter = make_annotation_getter("annotations/gtf_fns")
 barcode_whitelist_getter = make_annotation_getter("annotations/barcode_whitelist_fns")
+
+
+# validation/common tech-type tests
+
+TECHNOLOGY_CATEGORIES = {
+    '10x_rna_v4': {'type': 'droplet', 'has_umi': True},
+    '10x_rna_v3': {'type': 'droplet', 'has_umi': True},
+    '10x_atac': {'type': 'droplet', 'has_umi': False},
+    'bd_rna': {'type': 'droplet', 'has_umi': True},
+    'takara_dna': {'type': 'plate', 'has_umi': False},
+    'plate_wgs': {'type': 'plate', 'has_umi': False},
+}

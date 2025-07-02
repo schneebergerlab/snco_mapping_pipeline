@@ -20,7 +20,7 @@ for ds in config['datasets'].values():
 
 
 wildcard_constraints:
-    cond='|'.join(config['datasets']),
+    dataset_name='|'.join(config['datasets']),
     sample_name="\w+",
     ref='|'.join(ref_genotypes),
     qry='|'.join(genotypes),
@@ -45,7 +45,7 @@ include: "rules/haplotype.snakefile"
 rule all:
     input:
         expand(
-            results('haplotypes/{cond}.{file_type}.json'),
-            cond=config['datasets'],
+            results('haplotypes/{dataset_name}.{file_type}.json'),
+            dataset_name=config['datasets'],
             file_type=['markers', 'pred'],
         )

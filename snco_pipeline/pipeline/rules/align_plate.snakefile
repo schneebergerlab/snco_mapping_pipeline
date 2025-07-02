@@ -3,16 +3,16 @@ from glob import glob
 include: './align_common.snakefile'
 
 
-COND_SAMPLE_NAME_MAPPING = {}
-for cond in config['datasets']:
-    # config only stores cond -> sample_name_glob relationship
-    # use globbing to determine the sample_name -> cond relationship
+DATASET_SAMPLE_NAME_MAPPING = {}
+for dataset_name in config['datasets']:
+    # config only stores dataset_name -> sample_name_glob relationship
+    # use globbing to determine the sample_name -> dataset_name relationship
     sample_names = glob_wildcards(
         raw_data(f'{{sample_name}}{config["file_suffixes"]["read1"]}'),
-        files=get_star_fastq_input(cond, 'read1')
+        files=get_star_fastq_input(dataset_name, 'read1')
     ).sample_name
     for sn in sample_names:
-        COND_SAMPLE_NAME_MAPPING[sn] = cond
+        DATASET_SAMPLE_NAME_MAPPING[sn] = dataset_name
 
 
 def STAR_consensus_input(wc):
@@ -22,11 +22,11 @@ def STAR_consensus_input(wc):
       - index: the STAR index generated from the reference genome plus VCF transform
       - read, mate: the fastq files for the sample - represents a single individual/barcode
     '''
-    cond = COND_SAMPLE_NAME_MAPPING[wc.sample_name]
-    dataset = config['datasets'][cond]
+    dataset_name = DATASET_SAMPLE_NAME_MAPPING[wc.sample_name]
+    dataset = config['datasets'][dataset_name]
     tech_type = dataset['technology']
     ref_name = dataset['reference_genotype']
-    geno_group = get_geno_group(cond)
+    geno_group = get_geno_group(dataset_name)
     return {
         'index': annotation(f'star_indexes/{geno_group}/{ref_name}.{{qry}}.star_idx'),
         'read': raw_data(f'{{sample_name}}{config["file_suffixes"]["read1"]}'),
@@ -36,8 +36,8 @@ def STAR_consensus_input(wc):
 
 def get_transform_flag(wc):
     '''STAR genome transform flag - necessary if index has a VCF transformation'''
-    cond = COND_SAMPLE_NAME_MAPPING[wc.sample_name]
-    dataset = config['datasets'][cond]
+    dataset_name = DATASET_SAMPLE_NAME_MAPPING[wc.sample_name]
+    dataset = config['datasets'][dataset_name]
     ref = dataset['reference_genotype']
     if wc.qry != ref:
         return '--genomeTransformOutput SAM'
@@ -47,7 +47,7 @@ def get_transform_flag(wc):
 
 def get_temp_dir(wc, output):
     '''
-    create a private directory for each cond/query combination, since STAR does not work well 
+    create a private directory for each dataset_name/query combination, since STAR does not work well 
     when multiple processes are run in the same directory
     '''
     output_dir = os.path.split(output.bam)[0]
@@ -118,6 +118,7 @@ rule sort_bam_by_name:
     '''
     input:
         bam=results('aligned_data/single_barcodes/haploid/{sample_name}.{qry}.sorted.bam')
+        bai=results('aligned_data/single_barcodes/haploid/{sample_name}.{qry}.sorted.bam.bai')
     output:
         bam=temp(results('aligned_data/single_barcodes/haploid/{sample_name}.{qry}.namesorted.bam'))
     threads: 4
@@ -133,8 +134,8 @@ rule sort_bam_by_name:
 
 def get_merge_haps_input(wc):
     '''Expand all haplotypes that have been aligned to for a sample/barcode to create merge input'''
-    cond = COND_SAMPLE_NAME_MAPPING[wc.sample_name]
-    dataset = config['datasets'][cond]
+    dataset_name = DATASET_SAMPLE_NAME_MAPPING[wc.sample_name]
+    dataset = config['datasets'][dataset_name]
     qrys = set()
     for geno in dataset['genotypes'].values():
         for qry in geno.values():
@@ -201,7 +202,7 @@ def merge_samples_input(wc):
     '''input for sample/barcode-wise merging'''
     sample_names = glob_wildcards(
         raw_data(f'{{sample_name}}{config["file_suffixes"]["read1"]}'),
-        files=get_star_fastq_input(wc.cond, 'read1')
+        files=get_star_fastq_input(wc.dataset_name, 'read1')
     ).sample_name
     return expand(
         results('aligned_data/single_barcodes/{sample_name}.sorted.bam'),
@@ -214,7 +215,7 @@ rule list_bam:
     input:
         bams=merge_samples_input
     output:
-        txt=temp(results("{cond}.list"))
+        txt=temp(results("{dataset_name}.list"))
     run:
         with open(output.txt, 'w') as f:
             f.write('\n'.join(input.bams))
@@ -223,13 +224,13 @@ rule list_bam:
 rule merge_bams:
     '''sample-wise barcode merging'''
     input:
-        results("{cond}.list")
+        results("{dataset_name}.list")
     output:
-        bam=results('aligned_data/{cond}.sorted.bam'),
-        bai=results('aligned_data/{cond}.sorted.bam.bai'),
+        bam=results('aligned_data/{dataset_name}.sorted.bam'),
+        bai=results('aligned_data/{dataset_name}.sorted.bam.bai'),
     conda:
         '../env_yamls/htslib.yaml'
-    threads: 48
+    threads: 24
     shell:
         '''
         ulimit -n 5000

@@ -98,5 +98,11 @@ alignment:
       mates_gap_max: 500
 
 haplotyping:
-  min_informative_reads_per_barcode: 100
-  min_informative_reads_per_chrom: 20
+  preprocessing:
+    filter_pcr_duplicates: False # this is only used for data that does not have UMIs
+    min_informative_reads_per_barcode: 100 # The min number of reads that uniquely distinguish the two haplotypes that a barcode must have
+    min_informative_reads_per_chrom: 20 # The min number of haplotype-distinguishing reads per-barcode/sample per-chromosome
+  snco:
+    genomic_bin_size: 25_000 # Bin size for marker distribution
+    segment_size: 1_000_000 # rfactor of the rigid HMM. Approximately controls minimum distance between COs
+    terminal_segment_size: 50_000 # terminal rfactor of the rigid HMM. approx. controls min distance of COs from chromosome ends
