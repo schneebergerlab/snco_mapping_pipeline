@@ -178,7 +178,7 @@ rule STAR_consensus:
         mv {params.star_tmp_dir}/Log.progress.out {log.progress}
         mv {params.star_tmp_dir}/Log.final.out {log.final}
         mv {params.star_tmp_dir}/Log.out {log.main}
-          
+
         rm -rf {params.star_tmp_dir}
         '''
 

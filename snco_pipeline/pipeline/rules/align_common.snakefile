@@ -9,10 +9,7 @@ def get_star_index_input(wc):
     }
 
     if wc.ref != wc.qry:
-        if len(wc.geno_group.split('_')) > 2:
-            input_['vcf'] = annotation('vcf/star_consensus/msyd/{geno_group}.{qry}.vcf')
-        else:
-            input_['vcf'] = annotation('vcf/star_consensus/syri/{ref}.{qry}.vcf')
+        input_['vcf'] = annotation('vcf/star_consensus/msyd/{geno_group}.{qry}.vcf')
     return input_
 
 

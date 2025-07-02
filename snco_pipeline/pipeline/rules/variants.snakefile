@@ -63,28 +63,6 @@ rule run_syri:
         '''
 
 
-rule filter_syri_snps_for_star_consensus:
-    input:
-        vcf=annotation('vcf/syri/{ref}.{qry}.syri.vcf')
-    output:
-        vcf=annotation('vcf/star_consensus/syri/{ref}.{qry}.vcf')
-    conda:
-        '../env_yamls/snco.yaml'
-    resources:
-        mem_mb=30_000
-    params:
-        max_hdr_length=config['variants']['star_consensus']['max_hdr_length'],
-        max_indel_size=config['variants']['star_consensus']['max_indel_size']
-    shell:
-        '''
-        syri_vcf_to_stardiploid.py \
-          -M{params.max_hdr_length} \
-          -i{params.max_indel_size} \
-          -n {wildcards.qry} \
-          {input} {output}
-        '''
-
-
 def get_msyd_input(wc):
     ref, *qry_names = wc.geno_group.split('_')
     return {
@@ -104,6 +82,8 @@ rule msyd_input:
         unpack(get_msyd_input)
     output:
         cfg=temp(annotation('vcf/msyd/{geno_group}.msyd_config.tsv'))
+    params:
+        annot=config['annotation_dir']
     run:
         ref, *qry_names = wildcards.geno_group.split('_')
         with open(output.cfg, 'w') as f:
@@ -111,10 +91,10 @@ rule msyd_input:
             for qry in qry_names:
                 f.write(
                     f'{qry}\t'
-                    f'annotation/wga/{ref}.{qry}.bam\t'
-                    f'annotation/vcf/syri/{ref}.{qry}.syri.out\t'
-                    f'annotation/vcf/syri/{ref}.{qry}.syri.vcf\t'
-                    f'{get_genome_fasta(qry)}\n'
+                    f'{params.annot}/wga/{ref}.{qry}.bam\t'
+                    f'{params.annot}/vcf/syri/{ref}.{qry}.syri.out\t'
+                    f'{params.annot}/vcf/syri/{ref}.{qry}.syri.vcf\t'
+                    f'{get_fasta(qry)}\n'
                 )
 
 
@@ -137,9 +117,18 @@ rule run_msyd:
         '''
 
 
+def filter_snps_vcf_input(wc):
+    vcf_fns = config['annotations']['vcf_fns']
+    ref, *qry_names = wc.geno_group.split('_')
+    if ref in vcf_fns and vcf_fns[ref] is not None:
+        return ancient(annotation(vcf_fns[ref]))
+    else:
+        return annotation('vcf/msyd/{geno_group}.vcf')
+
+
 rule filter_msyd_snps_for_star_consensus:
     input:
-        vcf=annotation('vcf/msyd/{geno_group}.vcf')
+        vcf=filter_snps_vcf_input
     output:
         vcf=annotation('vcf/star_consensus/msyd/{geno_group}.{qry}.vcf'),
     conda:
