@@ -41,7 +41,10 @@ def calculate_genome_sa_index_nbases(wc, input):
 
 
 rule build_STAR_index:
-    '''Create the index required for alignment with STAR'''
+    """
+    Builds a STAR genome index for alignment. Uses either reference genome alone, or in conjunction with a 
+    VCF file to produce a "STAR consensus" variant transformed genome.
+    """
     input:
         unpack(get_star_index_input)
     output:

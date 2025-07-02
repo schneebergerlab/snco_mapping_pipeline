@@ -175,6 +175,7 @@ rule STAR_consensus:
 
         cd $RELPATH
         mv {params.star_tmp_dir}/Aligned.sortedByCoord.out.bam {output.bam}
+        samtools index {output.bam}
         mv {params.star_tmp_dir}/Log.progress.out {log.progress}
         mv {params.star_tmp_dir}/Log.final.out {log.final}
         mv {params.star_tmp_dir}/Log.out {log.main}

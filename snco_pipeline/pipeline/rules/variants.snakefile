@@ -1,4 +1,5 @@
 def get_wga_input(wc):
+    '''input genomes for minimap2 and syri'''
     return {
         'ref': get_fasta(wc.ref),
         'qry': get_fasta(wc.qry),
@@ -6,6 +7,7 @@ def get_wga_input(wc):
 
 
 rule minimap2_wga:
+    '''align two chromosome-scale genome assemblies with minimap2 for analysis with syri'''
     input:
         unpack(get_wga_input)
     output:
@@ -32,12 +34,14 @@ rule minimap2_wga:
 
 
 def get_syri_input(wc):
+    '''full syri input, requires the two genomes plus their minimap2 alignment (bam file)'''
     input_ = get_wga_input(wc)
     input_['bam'] = annotation('wga/{ref}.{qry}.bam')
     return input_
 
 
 rule run_syri:
+    '''use syri to convert a wga of two genome assemblies into a  vcf file of synteny, as well as snps/indels'''
     input:
         unpack(get_syri_input)
     output:
@@ -64,6 +68,7 @@ rule run_syri:
 
 
 def get_msyd_input(wc):
+    '''full input for msyd, requires genomes, wga bams, and syri output as vcf/syri.out files'''
     ref, *qry_names = wc.geno_group.split('_')
     return {
         'bams': expand(annotation('wga/{ref}.{qry}.bam'),
@@ -78,6 +83,7 @@ def get_msyd_input(wc):
 
 
 rule msyd_input:
+    '''builds a config file for msyd'''
     input:    
         unpack(get_msyd_input)
     output:
@@ -99,6 +105,10 @@ rule msyd_input:
 
 
 rule run_msyd:
+    '''
+    runs msyd to identify "core" synteny between two or more assemblies, 
+    outputs a vcf of SNPs/indels in core regions
+    '''
     input:
         unpack(get_msyd_input),
         cfg=annotation('vcf/msyd/{geno_group}.msyd_config.tsv'),
@@ -113,11 +123,20 @@ rule run_msyd:
           -i {input.cfg} \
           -r {input.ref_fasta} \
           -o {output.pff} \
-          -m {output.vcf}
+          -m {output.vcf}.tmp.vcf
+        bcftools annotate \
+          --exclude 'ALT ~ "CORESYN"' \
+          --remove "FORMAT/CHR,FORMAT/START,FORMAT/END,INFO/PID" \
+          {output.vcf}.tmp.vcf | \
+        grep -v "^##ALT" | grep -v "^##INFO" | \
+        bcftools sort | \
+        bcftools filter -S0 -e 'GT=="."' > {output.vcf}
+        rm {output.vcf}.tmp.vcf
         '''
 
 
 def filter_snps_vcf_input(wc):
+    '''input for vcf filtering, can be either msyd output created from wga or a user defined vcf file'''
     vcf_fns = config['annotations']['vcf_fns']
     ref, *qry_names = wc.geno_group.split('_')
     if ref in vcf_fns and vcf_fns[ref] is not None:
@@ -127,6 +146,10 @@ def filter_snps_vcf_input(wc):
 
 
 rule filter_msyd_snps_for_star_consensus:
+    '''
+    filter and reformat a vcf file (msyd output or user defined) to produce a VCF
+    for a single query vs reference comparison suitable for STAR consensus
+    '''
     input:
         vcf=filter_snps_vcf_input
     output:
@@ -137,14 +160,7 @@ rule filter_msyd_snps_for_star_consensus:
         max_indel_size=config['variants']['star_consensus']['max_indel_size'],
     shell:
         r'''
-        bcftools annotate \
-          --exclude 'ALT ~ "CORESYN"' \
-          --remove "FORMAT/CHR,FORMAT/START,FORMAT/END,INFO/PID" \
-          {input.vcf} | \
-        grep -v "^##ALT" | grep -v "^##INFO" | \
-        bcftools sort | \
-        bcftools filter -S0 -e 'GT=="."' | \
-        bcftools view -s {wildcards.qry} | \
+        bcftools view -s {wildcards.qry} {input.vcf} | \
         bcftools view -i 'GT=="alt"' | \
         bcftools view -G \
           -e "STRLEN(REF)>{params.max_indel_size} || STRLEN(ALT)>{params.max_indel_size}" \
