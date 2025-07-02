@@ -1,12 +1,14 @@
 import math
 import gzip
 from glob import glob
+import itertools as it
 
 
 include: './align_common.snakefile'
 
 
 rule cell_barcode_rc:
+    '''reverse complement a fastq file, necessary for some snATAC-seq datasets sequenced on BGI nanoball'''
     input:
         barcode=raw_data(f'{{sample_name}}{config["file_suffixes"]["barcode"]}'),
     output:
@@ -20,6 +22,13 @@ rule cell_barcode_rc:
 
 
 def STAR_consensus_input(wc):
+    '''
+    full input to STAR consensus (droplet mode with STARsolo)
+    input is:
+      - index: the STAR index generated from the reference genome plus VCF transform
+      - barcode_whitelist: the whitelist file(s) for the sequencing technology type
+      - read, mate, barcode: the fastq files for the dataset - contains ALL cells/barcodes
+    '''
     dataset = config['datasets'][wc.cond]
     tech_type = dataset['technology']
     ref_name = dataset['reference_genotype']
@@ -45,6 +54,9 @@ def STAR_consensus_input(wc):
 
 
 def get_adapter_parameters(wc, input):
+    '''
+    Adapter parameters for the different sequencing modalities
+    '''
     tech_type = config['datasets'][wc.cond]['technology']
     whitelist = ' '.join(f'${{RELPATH}}/{fn}' for fn in input.barcode_whitelist)
     barcode_read_length = get_read_length(input.barcode[0])
@@ -84,6 +96,7 @@ def get_adapter_parameters(wc, input):
 
 
 def get_transform_flag(wc):
+    '''STAR genome transform flag - necessary if index has a VCF transformation'''
     dataset = config['datasets'][wc.cond]
     ref = dataset['reference_genotype']
     if wc.qry != ref:
@@ -93,14 +106,29 @@ def get_transform_flag(wc):
 
 
 def get_temp_dir(wc, output):
+    '''
+    create a private directory for each cond/query combination, since STAR does not work well 
+    when multiple processes are run in the same directory
+    '''
     output_dir = os.path.split(output.bam)[0]
     tmp_dir = os.path.join(output_dir, f'{wc.cond}.{wc.qry}.tmpdir')
     return tmp_dir
 
 
 def get_input_flags(wc, input):
+    '''
+    create flags for multiple input files, check if they are gzipped and add readFilesCommand
+    '''
     tech_type = config['datasets'][wc.cond]['technology']
-    flag = '--readFilesCommand "zcat" --readFilesIn '
+    all_fastqs = it.chain(
+        (input.read, input.mate.input.barcode)
+        if tech_type == '10x_atac'
+        else (input.read, input.barcode)
+    )
+    if all([fn.endswith('.gz') for fn in all_fastqs]):
+        flag = '--readFilesCommand "zcat" --readFilesIn '
+    else:
+        flag = '--readFilesIn '
     flag += ','.join(f'${{RELPATH}}/{fn}' for fn in input.read)
     if tech_type == '10x_atac':
         flag += ' '
@@ -111,9 +139,10 @@ def get_input_flags(wc, input):
     
 
 def get_spliced_alignment_params(wc):
+    '''splicing/fragment size parameters for STAR'''
     tech_type = config['datasets'][wc.cond]['technology']
     if tech_type == "10x_atac":
-        return '''\
+        return f'''\
           --alignIntronMax 1 \
           --alignMatesGapMax {config["alignment"]["star"]["atac"]["mates_gap_max"]} \
         '''
@@ -128,6 +157,9 @@ def get_spliced_alignment_params(wc):
 
 
 rule STAR_consensus:
+    '''
+    map reads for a single-cell dataset using STARsolo and a VCF-transformed genome index.
+    '''
     input:
         unpack(STAR_consensus_input)
     output:
@@ -185,6 +217,9 @@ rule STAR_consensus:
 
 
 rule sort_bam_by_name:
+    '''
+    name-sort the output of star consensus to ensure consistent order of read-ids across haplotypes
+    '''
     input:
         bam=results('aligned_data/haploid/{cond}.{qry}.sorted.bam')
     output:
@@ -201,6 +236,7 @@ rule sort_bam_by_name:
 
 
 def get_merge_input(wc):
+    '''Expand all haplotypes that have been aligned to for a dataset to create merge input'''
     dataset = config['datasets'][wc.cond]
     qrys = set()
     for geno in dataset['genotypes'].values():
@@ -213,6 +249,9 @@ def get_merge_input(wc):
 
 
 rule merge_name_sorted_bams:
+    '''
+    merge all haplotype-specific alignments into a single name-sorted bam file for haplotype collapsing
+    '''
     input:
         unpack(get_merge_input)
     output:
@@ -229,6 +268,10 @@ rule merge_name_sorted_bams:
 
 
 rule collapse_alignments:
+    '''
+    Uses snco script collapse_ha_specific_alns.py to select the best haplotype alignment(s) for each read
+    and outputs a single alignment with a new ha tag that indicates which haplotype(s) is/are best
+    '''
     input:
         bam=results('aligned_data/{cond}.namesorted.bam')
     output:

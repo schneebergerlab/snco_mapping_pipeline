@@ -16,6 +16,12 @@ for cond in config['datasets']:
 
 
 def STAR_consensus_input(wc):
+    '''
+    full input to STAR consensus (plate mode WITHOUT STARsolo).
+    input is:
+      - index: the STAR index generated from the reference genome plus VCF transform
+      - read, mate: the fastq files for the sample - represents a single individual/barcode
+    '''
     cond = COND_SAMPLE_NAME_MAPPING[wc.sample_name]
     dataset = config['datasets'][cond]
     tech_type = dataset['technology']
@@ -29,6 +35,7 @@ def STAR_consensus_input(wc):
 
 
 def get_transform_flag(wc):
+    '''STAR genome transform flag - necessary if index has a VCF transformation'''
     cond = COND_SAMPLE_NAME_MAPPING[wc.sample_name]
     dataset = config['datasets'][cond]
     ref = dataset['reference_genotype']
@@ -39,12 +46,19 @@ def get_transform_flag(wc):
 
 
 def get_temp_dir(wc, output):
+    '''
+    create a private directory for each cond/query combination, since STAR does not work well 
+    when multiple processes are run in the same directory
+    '''
     output_dir = os.path.split(output.bam)[0]
     tmp_dir = os.path.join(output_dir, f'{wc.sample_name}.{wc.qry}.tmpdir')
     return tmp_dir
 
 
 rule STAR_consensus:
+    '''
+    map reads for a single individual/barcode using STARsolo and a VCF-transformed genome index.
+    '''
     input:
         unpack(STAR_consensus_input)
     output:
@@ -99,6 +113,9 @@ rule STAR_consensus:
 
 
 rule sort_bam_by_name:
+    '''
+    name-sort the output of star consensus to ensure consistent order of read-ids across haplotypes
+    '''
     input:
         bam=results('aligned_data/single_barcodes/haploid/{sample_name}.{qry}.sorted.bam')
     output:
@@ -115,6 +132,7 @@ rule sort_bam_by_name:
 
 
 def get_merge_haps_input(wc):
+    '''Expand all haplotypes that have been aligned to for a sample/barcode to create merge input'''
     cond = COND_SAMPLE_NAME_MAPPING[wc.sample_name]
     dataset = config['datasets'][cond]
     qrys = set()
@@ -128,6 +146,9 @@ def get_merge_haps_input(wc):
 
 
 rule merge_name_sorted_hap_bams:
+    '''
+    merge all haplotype-specific alignments for a sample/barcode into a single name-sorted bam file for haplotype collapsing
+    '''
     input:
         bams=get_merge_haps_input
     output:
@@ -144,6 +165,12 @@ rule merge_name_sorted_hap_bams:
 
 
 rule collapse_alignments:
+    '''
+    Uses snco script collapse_ha_specific_alns.py to select the best haplotype alignment(s) for each read
+    and outputs a single alignment with a new ha tag that indicates which haplotype(s) is/are best.
+    Also adds new RG tag to bam file to indicate the sample name, so that this can be identified later
+    after sample-wise merging
+    '''
     input:
         bam=results('aligned_data/single_barcodes/{sample_name}.namesorted.bam')
     output:
@@ -171,6 +198,7 @@ rule collapse_alignments:
 
 
 def merge_samples_input(wc):
+    '''input for sample/barcode-wise merging'''
     sample_names = glob_wildcards(
         raw_data(f'{{sample_name}}{config["file_suffixes"]["read1"]}'),
         files=get_star_fastq_input(wc.cond, 'read1')
@@ -182,6 +210,7 @@ def merge_samples_input(wc):
 
 
 rule list_bam:
+    '''create a list of bam files representing all the samples for a dataset, for merging'''
     input:
         bams=merge_samples_input
     output:
@@ -192,6 +221,7 @@ rule list_bam:
 
 
 rule merge_bams:
+    '''sample-wise barcode merging'''
     input:
         results("{cond}.list")
     output:
