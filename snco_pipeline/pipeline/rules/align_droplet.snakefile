@@ -183,7 +183,7 @@ rule STAR_consensus:
     resources:
         mem_mb=lambda wildcards, threads: (threads + 4) * 2048,
     conda:
-        '../env_yamls/star.yaml'
+        get_conda_env('star')
     shell:
         '''
         mkdir -p {params.star_tmp_dir}
@@ -229,7 +229,7 @@ rule sort_bam_by_name:
     resources:
         mem_mb=20_000,
     conda:
-        '../env_yamls/htslib.yaml'
+        get_conda_env('htslib')
     shell:
         '''
         samtools sort -n -@ {threads} {input.bam} > {output.bam}
@@ -261,7 +261,7 @@ rule merge_name_sorted_bams:
     resources:
         mem_mb=lambda wildcards, threads: threads * 1024,
     conda:
-        '../env_yamls/htslib.yaml'
+        get_conda_env('htslib')
     shell:
         '''
         samtools merge -@ {threads} -n {output.bam} {input.bams}
@@ -282,7 +282,7 @@ rule collapse_alignments:
         mem_mb=20_000,
     threads: 12
     conda:
-        '../env_yamls/snco.yaml'
+        get_conda_env('snco')
     shell:
         '''
         collapse_ha_specific_alns.py \

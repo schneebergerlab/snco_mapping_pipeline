@@ -41,13 +41,13 @@ gtf_getter = make_annotation_getter("annotations/gtf_fns")
 barcode_whitelist_getter = make_annotation_getter("annotations/barcode_whitelist_fns")
 
 
-# validation/common tech-type tests
-
-TECHNOLOGY_CATEGORIES = {
-    '10x_rna_v4': {'type': 'droplet', 'has_umi': True},
-    '10x_rna_v3': {'type': 'droplet', 'has_umi': True},
-    '10x_atac': {'type': 'droplet', 'has_umi': False},
-    'bd_rna': {'type': 'droplet', 'has_umi': True},
-    'takara_dna': {'type': 'plate', 'has_umi': False},
-    'plate_wgs': {'type': 'plate', 'has_umi': False},
-}
+def conda_env_getter(config):
+    def _wrapped(env_name):
+        user_supplied_env = config['conda_envs'].get(env_name)
+        if user_supplied_env is None:
+            # use default prespecified environment
+            return f'../env_yamls/{env_name}.yaml'
+        if os.path.splitext(user_supplied_env)[1] in ('.yaml', '.yml'):
+            return os.path.abspath(user_supplied_env)
+        return user_supplied_env
+    return _wrapped

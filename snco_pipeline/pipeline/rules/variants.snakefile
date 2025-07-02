@@ -20,7 +20,7 @@ rule minimap2_wga:
         preset=config['variants']['minimap2']['preset'],
         zdrop=config['variants']['minimap2']['zdrop'],
     conda:
-        '../env_yamls/minimap2.yaml'
+        get_conda_env('minimap2')
     shell:
         '''
         minimap2 --eqx -t {threads} \
@@ -50,7 +50,7 @@ rule run_syri:
     resources:
         mem_mb=lambda wc, threads: 1024 * threads,
     conda:
-        '../env_yamls/msyd.yaml'
+        get_conda_env('msyd')
     params:
         filter_alns='' if config['variants']['syri']['use_low_qual_filters'] else '-f',
         out_dir=annotation('vcf/syri')
@@ -116,7 +116,7 @@ rule run_msyd:
         pff=annotation('vcf/msyd/{geno_group,\w+}.pansyn.pff'),
         vcf=annotation('vcf/msyd/{geno_group,\w+}.vcf'),
     conda:
-        '../env_yamls/msyd.yaml'
+        get_conda_env('msyd')
     shell:
         '''
         msyd call --core \
@@ -155,7 +155,7 @@ rule filter_msyd_snps_for_star_consensus:
     output:
         vcf=annotation('vcf/star_consensus/msyd/{geno_group}.{qry}.vcf'),
     conda:
-        '../env_yamls/htslib.yaml'
+        get_conda_env('htslib')
     params:
         max_indel_size=config['variants']['star_consensus']['max_indel_size'],
     shell:

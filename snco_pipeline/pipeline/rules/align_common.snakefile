@@ -80,7 +80,7 @@ rule build_STAR_index:
         vcf_flag=lambda wc, input: f'--genomeTransformVCF {input.vcf}' if hasattr(input, 'vcf') else '',
         transform_flag=lambda wc, input: '--genomeTransformType Haploid' if hasattr(input, 'vcf') else '',
     conda:
-        '../env_yamls/star.yaml'
+        get_conda_env('star')
     shell:
         '''
         mkdir {output}

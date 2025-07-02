@@ -20,7 +20,7 @@ rule remove_pcr_duplicates:
     resources:
         mem_mb=10_000,
     conda:
-        '../env_yamls/picard.yaml'
+        get_conda_env('picard')
     shell:
         '''
         samtools view -b -f2 {input.bam} > "{input.bam}.mapped.tmp.bam"
@@ -155,7 +155,7 @@ rule run_haplotyping:
         preds=results('haplotypes/{dataset_name}.pred.json'),
         stats=results('haplotypes/{dataset_name}.pred.stats.tsv'),
     conda:
-        '../env_yamls/snco.yaml'
+        get_conda_env('snco')
     params:
         bin_size=config['haplotyping']['snco']['genomic_bin_size'],
         rfactor=config['haplotyping']['snco']['segment_size'],
