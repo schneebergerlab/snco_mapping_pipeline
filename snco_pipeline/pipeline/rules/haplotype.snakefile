@@ -119,12 +119,12 @@ def get_tech_specific_params(wc):
         x_flag = "wgs" if tech_type == "plate_wgs" else tech_type
         params = f'''\
           -x {x_flag} \
-          --no-validate \
           -y {ploidy} \
           --cb-tag RG \
           --hap-tag ha \
           --hap-tag-type "multi_haplotype" \
-          --cb-correction-method "exact" \
+          --cb-correction-method "none" \
+          --no-validate \
           --umi-collapse-method "none" \
           --no-clean-bg \
         '''

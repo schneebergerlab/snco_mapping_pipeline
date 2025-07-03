@@ -291,6 +291,6 @@ rule collapse_alignments:
           -T ${{TMPDIR}}/{wildcards.dataset_name} \
           -o {output.bam} \
           {output.bam}.unsorted.bam
-        samtools index {output}
+        samtools index {output.bam}
         rm {output.bam}.unsorted.bam
         '''

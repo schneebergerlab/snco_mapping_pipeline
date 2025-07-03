@@ -1,6 +1,7 @@
 from snco_pipeline.pipeline_utils import (
     annotations_getter, raw_data_getter, results_getter,
-    fasta_getter, gtf_getter, barcode_whitelist_getter
+    fasta_getter, gtf_getter, barcode_whitelist_getter,
+    conda_env_getter
 )
 
 
