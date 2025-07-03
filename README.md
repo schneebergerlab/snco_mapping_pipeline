@@ -30,6 +30,8 @@ The `snco_pipeline` cli is a fairly straightforward wrapper of the snakemake cli
 
     snco_pipeline run --cores 4 --use-conda --rerun-incomplete
 
+The only arguments that should be avoided are `--snakefile` and `--configfile` since these are managed by the cli.
+
 ### Requirements & conda support
 
-The pipeline itself has few requirements - just `snakemake`, `jinja2`, and `click`. None of the tools used for 
+The pipeline itself has few requirements - just `snakemake`, `jinja2`, and `click`. None of the tools used for the analysis are installed by the `setup.py` script itself, but are instead managed by snakemake using conda. The default environment yamls used by snakemake are stored in the subdirectory `snco_mapping_pipeline/snco_pipeline/pipeline/env_yamls/` of this repo. If you have problems with the conda installations of these environments, alternative yamls or existing conda environment names can be provided in the `conda_envs` section of the `snco_mapping_config.yaml` file.

@@ -171,6 +171,9 @@ rule run_haplotyping:
         mem_mb=100_000
     shell:
         '''
+        export OPENBLAS_NUM_THREADS=1
+        export OMP_NUM_THREADS=1
+        export MKL_NUM_THREADS=1
         snco bam2pred -v debug -p {threads} \
           --cb-whitelist-fn {input.cb_whitelist} \
           -N {params.bin_size} \
