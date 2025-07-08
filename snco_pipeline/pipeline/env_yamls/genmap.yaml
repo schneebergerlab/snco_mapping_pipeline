@@ -1,0 +1,8 @@
+name: genmap
+channels:
+ - conda-forge
+ - bioconda
+dependencies:
+ - genmap
+ - samtools
+ - bedtools

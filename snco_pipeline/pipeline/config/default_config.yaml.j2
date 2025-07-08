@@ -66,6 +66,7 @@ file_suffixes:
 # if you prefer to supply your own yamls or use other pre-installed environments for certain steps,
 # you can use this section to override them.
 conda_envs:
+  genmap: null # environment used for rules involving genmap, requires genmap, bedtools, samtools
   minimap2: null # environment used for rules involving minimap2, requires minimap2, samtools
   htslib: null # environment used for rules involving samtools/bcftools/bgzip/tabix
   seqtk: null # environment used for rules involving seqtk
@@ -86,6 +87,10 @@ preprocessing:
     rev_comp_barcode: True # necessary for some sequencing methods e.g. nanoball seq
 
 variants:
+  mappability:
+    kmer_size: 100 # the kmer size for genmap mappability calculation
+    edit_dist: 1 # number of edits allowed between kmers to consider them the same
+    min_mappability: 0.51 # the min mappability to keep variants in - others are removed
   minimap2:
     preset: "asm10"
     zdrop: "500" # can be a single int or pair of ints, see minimap manual

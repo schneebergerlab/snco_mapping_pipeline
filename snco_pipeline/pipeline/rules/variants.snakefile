@@ -1,15 +1,41 @@
-def get_wga_input(wc):
-    '''input genomes for minimap2 and syri'''
-    return {
-        'ref': get_fasta(wc.ref),
-        'qry': get_fasta(wc.qry),
-    }
+rule mappability:
+    ''''''
+    input:
+        fasta=lambda wc: get_fasta(wc.geno),
+        fai=lambda wc: get_fasta(wc.geno) + '.fai',
+    output:
+        bedgraph=annotation('{geno}.mappability.bedgraph'),
+        fasta=annotation('{geno}.softmasked.fa'),
+        fai=annotation('{geno}.softmasked.fa.fai'),
+    params:
+        kmer_size=config['variants']['mappability']['kmer_size'],
+        edit_dist=config['variants']['mappability']['edit_dist'],
+        min_mappability=config['variants']['mappability']['min_mappability'],
+        bedgraph_prefix=lambda wc: annotation(f'{wc.geno}.mappability')
+    threads: 16
+    conda:
+        get_conda_env('genmap')
+    shell:
+        '''
+        genmap index -F {input.fasta} -I {input.fasta}.genmap_idx
+        genmap map -bg -T {threads} \
+          -K {params.kmer_size} \
+          -E {params.edit_dist} \
+          -I {input.fasta}.genmap_idx \
+          -O {params.bedgraph_prefix}
+        awk '$4 < {params.min_mappability}' {output.bedgraph} | \
+        bedtools slop -l 0 -r {params.kmer_size} -g {input.fai} -i stdin | \
+        bedtools maskfasta -soft -fi {input.fasta} -bed stdin -fo {output.fasta}
+        samtools faidx {output.fasta}
+        rm -rf {input.fasta}.genmap_idx
+        '''
 
 
 rule minimap2_wga:
     '''align two chromosome-scale genome assemblies with minimap2 for analysis with syri'''
     input:
-        unpack(get_wga_input)
+        ref=annotation('{ref}.softmasked.fa'),
+        qry=annotation('{qry}.softmasked.fa'),
     output:
         annotation('wga/{ref}.{qry}.bam')
     threads:
@@ -33,17 +59,12 @@ rule minimap2_wga:
         '''
 
 
-def get_syri_input(wc):
-    '''full syri input, requires the two genomes plus their minimap2 alignment (bam file)'''
-    input_ = get_wga_input(wc)
-    input_['bam'] = annotation('wga/{ref}.{qry}.bam')
-    return input_
-
-
 rule run_syri:
     '''use syri to convert a wga of two genome assemblies into a  vcf file of synteny, as well as snps/indels'''
     input:
-        unpack(get_syri_input)
+        ref=annotation('{ref}.softmasked.fa'),
+        qry=annotation('{qry}.softmasked.fa'),
+        bam=annotation('wga/{ref}.{qry}.bam')
     output:
         vcf=annotation('vcf/syri/{ref}.{qry}.syri.vcf'),
         syri=annotation('vcf/syri/{ref}.{qry}.syri.out'),
@@ -71,14 +92,11 @@ def get_msyd_input(wc):
     '''full input for msyd, requires genomes, wga bams, and syri output as vcf/syri.out files'''
     ref, *qry_names = wc.geno_group.split('_')
     return {
-        'bams': expand(annotation('wga/{ref}.{qry}.bam'),
-                       ref=ref, qry=qry_names),
-        'syri': expand(annotation('vcf/syri/{ref}.{qry}.syri.out'),
-                       ref=ref, qry=qry_names),
-        'vcf': expand(annotation('vcf/syri/{ref}.{qry}.syri.vcf'),
-                       ref=ref, qry=qry_names),
-        'qry_fasta': [get_fasta(qry) for qry in qry_names],
-        'ref_fasta': get_fasta(ref)
+        'bams': expand(annotation('wga/{ref}.{qry}.bam'), ref=ref, qry=qry_names),
+        'syri': expand(annotation('vcf/syri/{ref}.{qry}.syri.out'), ref=ref, qry=qry_names),
+        'vcf': expand(annotation('vcf/syri/{ref}.{qry}.syri.vcf'), ref=ref, qry=qry_names),
+        'qry_fasta': expand(annotation('{qry}.softmasked.fa'), qry=qry_names),
+        'ref_fasta': annotation(f'{ref}.softmasked.fa')
     }
 
 
@@ -135,34 +153,80 @@ rule run_msyd:
         '''
 
 
+def blacklist_input(wc):
+    '''input for the blacklist command - the original bam files for minimap2 wga'''
+    ref, *qry_names = wc.geno_group.split('_')
+    return {
+        'bams': expand(annotation('wga/{ref}.{qry}.bam'), ref=ref, qry=qry_names),
+        'fai': annotation(f'{ref}.softmasked.fa.fai')
+    }
+
+
+rule blacklist_nonsyntenic_overlapping:
+    '''
+    Use bedtools to create a blacklist of regions which are non-syntenic.
+    Since msyd outputs syntenic regions that can overlap non-syntenic ones, this can help remove noisy markers
+    '''
+    input:
+        unpack(blacklist_input)
+    output:
+        blacklist=annotation('bed/{geno_group}.blacklist.bed')
+    conda:
+        get_conda_env('genmap')
+    shell:
+        '''
+        for bam in {input.bams}; do \
+          bedtools bamtobed -i $bam | \
+          bedtools genomecov -g {input.fai} -bg -i stdin | \
+          awk '$4 > 1'; \
+        done >> {output.blacklist}.tmp.bed
+        sort -k1,1 -k2,2n {output.blacklist}.tmp.bed | \
+        bedtools merge -i stdin > {output.blacklist}
+        rm {output.blacklist}.tmp.bed
+        '''
+
+
+
 def filter_snps_vcf_input(wc):
     '''input for vcf filtering, can be either msyd output created from wga or a user defined vcf file'''
     vcf_fns = config['annotations']['vcf_fns']
     ref, *qry_names = wc.geno_group.split('_')
     if ref in vcf_fns and vcf_fns[ref] is not None:
-        return ancient(annotation(vcf_fns[ref]))
+        return {
+            'vcf': ancient(annotation(vcf_fns[ref])),
+            'fasta': annotation(f'{ref}.softmasked.fa')
+        }
     else:
-        return annotation('vcf/msyd/{geno_group}.vcf')
+        return {
+            'vcf': annotation('vcf/msyd/{geno_group}.vcf'),
+            'blacklist': annotation('bed/{geno_group}.blacklist.bed'),
+            'fasta': annotation(f'{ref}.softmasked.fa')
+        }
+    
 
 
 rule filter_msyd_snps_for_star_consensus:
     '''
     filter and reformat a vcf file (msyd output or user defined) to produce a VCF
-    for a single query vs reference comparison suitable for STAR consensus
+    for a single query vs reference comparison suitable for STAR consensus.
+    Removes softmasked records, indels > max_indel_size, and blacklisted regions
     '''
     input:
-        vcf=filter_snps_vcf_input
+        unpack(filter_snps_vcf_input)
     output:
         vcf=annotation('vcf/star_consensus/msyd/{geno_group}.{qry}.vcf'),
     conda:
         get_conda_env('htslib')
     params:
         max_indel_size=config['variants']['star_consensus']['max_indel_size'],
+        blacklist_flag=lambda wc, input: f'-T "^{input.blacklist}"' if hasattr(input, 'blacklist') else ''
     shell:
         r'''
         bcftools view -s {wildcards.qry} {input.vcf} | \
-        bcftools view -i 'GT=="alt"' | \
+        bcftools view -i 'GT=="alt"' {params.blacklist_flag} | \
         bcftools view -G \
-          -e "STRLEN(REF)>{params.max_indel_size} || STRLEN(ALT)>{params.max_indel_size}" \
+          -e "STRLEN(REF)>{params.max_indel_size} || STRLEN(ALT)>{params.max_indel_size}" | \
+        awk '$0 ~ /^##/ || $4 !~ /[acgtryswkmbdhvnSWKMBDHVN]/ || $5 !~ /[acgtryswkmbdhvnSWKMBDHVN]/' | \
+        bcftools norm --remove-duplicates -f {input.fasta} \
         > {output.vcf}
         '''
