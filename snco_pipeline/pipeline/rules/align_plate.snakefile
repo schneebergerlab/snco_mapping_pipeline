@@ -63,6 +63,7 @@ rule STAR_consensus:
         unpack(STAR_consensus_input)
     output:
         bam=temp(results('aligned_data/single_barcodes/haploid/{sample_name}.{qry}.sorted.bam')),
+        bai=temp(results('aligned_data/single_barcodes/haploid/{sample_name}.{qry}.sorted.bam.bai')),
     params:
         star_tmp_dir=get_temp_dir,
         transform_flag=get_transform_flag,

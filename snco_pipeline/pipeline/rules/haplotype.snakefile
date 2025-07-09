@@ -39,7 +39,8 @@ rule remove_pcr_duplicates:
 
 def filter_input(wc):
     tech_type = config['datasets'][wc.dataset_name]['technology']
-    if tech_type not in ('10x_rna_v4', '10x_rna_v3', 'bd_rna') and config['haplotyping']['filter_pcr_duplicates']:
+    if tech_type not in ('10x_rna_v4', '10x_rna_v3', 'bd_rna') and \
+            config['haplotyping']['preprocessing']['filter_pcr_duplicates']:
         input_file_type = 'deduped'
     else:
         # skips PCR deduplication by taking collapsed output as direct input
