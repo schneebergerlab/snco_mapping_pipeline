@@ -7,6 +7,7 @@ import yaml
 import click
 from jinja2 import Environment, FileSystemLoader, meta
 
+
 BASE_DIR = Path(__file__).parent
 PIPELINE_DIR = BASE_DIR / "pipeline"
 CONFIG_DIR = PIPELINE_DIR / "config"
@@ -46,7 +47,7 @@ def init_config(destination, force):
     """Prompt for missing values and render config.yaml from template."""
     dest = Path(destination)
     if dest.exists() and not force:
-        click.echo(f"{dest} already exists. Refusing to overwrite.", err=True)
+        click.secho(f"{dest} already exists. Refusing to overwrite.", err=True, fg="red")
         sys.exit(1)
 
     env = Environment(loader=FileSystemLoader(CONFIG_DIR))
@@ -60,7 +61,7 @@ def init_config(destination, force):
     # Prompt for each variable
     context = {}
     for var in CONFIG_VARIABLES:
-        value = click.prompt(f"Enter value for '{var}'", default='')
+        value = click.prompt(click.style(f"Enter value for '{var}'", fg='bright_yellow'), default='')
         if value != '':
             context[var] = value
 
@@ -71,42 +72,31 @@ def init_config(destination, force):
     template = env.get_template(template_name)
     rendered = template.render(context)
     dest.write_text(rendered)
-    click.echo(f"Config written to {dest}")
+    click.secho(f"Config written to {dest}", fg="green")
     config = yaml.safe_load(rendered)
     for directory in ['annotation_dir', 'raw_data_dir', 'results_dir']:
         dir_name = config[directory]
         if not os.path.exists(dir_name):
-            click.echo(f'Creating {directory}: {dir_name}')
+            click.secho(f'Creating {directory}: {dir_name}', fg="bright_yellow")
             os.mkdir(dir_name)
 
 
 @cli.command("run", context_settings={"ignore_unknown_options": True, "allow_extra_args": True})
 @click.option("--configfile", "-c", type=click.Path(exists=True), default="snco_mapping_config.yaml",
               help="Path to config file")
-@click.option("--set", "overrides", multiple=True, help="Override config values (key=value)")
 @click.pass_context
-def run_pipeline(ctx, configfile, overrides):
+def run_pipeline(ctx, configfile):
     """Run the pipeline."""
-    # Convert key=value overrides into a flat list for --config
-    config_overrides = []
-    for item in overrides:
-        if "=" not in item:
-            click.echo(f"Ignoring malformed --set '{item}'", err=True)
-            continue
-        config_overrides.append(item)
 
     args = [
         "--snakefile", str(SNAKEFILE.resolve()),
         "--configfile", str(configfile),
     ]
 
-    if config_overrides:
-        args += ["--config"] + config_overrides
-
     # Add any unknown extra CLI args
     args += ctx.args
 
-    click.echo(f"Running: snakemake {' '.join(args)}")
+    click.secho(f"Running: snakemake {' '.join(args)}", fg="bright_yellow")
 
     try:
         # Snakemake ≥7.x

@@ -23,7 +23,7 @@ for ds in config['datasets'].values():
 
 wildcard_constraints:
     dataset_name='|'.join(config['datasets']),
-    sample_name="\w+",
+    sample_name=r'\w+',
     ref='|'.join(ref_genotypes),
     qry='|'.join(genotypes),
     geno='|'.join(genotypes),

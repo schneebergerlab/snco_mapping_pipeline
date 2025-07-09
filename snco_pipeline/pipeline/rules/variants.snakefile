@@ -131,8 +131,8 @@ rule run_msyd:
         unpack(get_msyd_input),
         cfg=annotation('vcf/msyd/{geno_group}.msyd_config.tsv'),
     output:
-        pff=annotation('vcf/msyd/{geno_group,\w+}.pansyn.pff'),
-        vcf=annotation('vcf/msyd/{geno_group,\w+}.vcf'),
+        pff=annotation(r'vcf/msyd/{geno_group,\w+}.pansyn.pff'),
+        vcf=annotation(r'vcf/msyd/{geno_group,\w+}.vcf'),
     conda:
         get_conda_env('msyd')
     shell:
