@@ -117,7 +117,7 @@ rule sort_bam_by_name:
     name-sort the output of star consensus to ensure consistent order of read-ids across haplotypes
     '''
     input:
-        bam=results('aligned_data/single_barcodes/haploid/{sample_name}.{qry}.sorted.bam')
+        bam=results('aligned_data/single_barcodes/haploid/{sample_name}.{qry}.sorted.bam'),
         bai=results('aligned_data/single_barcodes/haploid/{sample_name}.{qry}.sorted.bam.bai')
     output:
         bam=temp(results('aligned_data/single_barcodes/haploid/{sample_name}.{qry}.namesorted.bam'))
