@@ -47,7 +47,8 @@ include: "rules/haplotype.snakefile"
 rule all:
     input:
         expand(
-            results('haplotypes/{dataset_name}.{file_type}.json'),
+            [results('haplotypes/{dataset_name}.{file_type}.json'),
+             results('analysis/{dataset_name}.haplotyping_report.py.ipynb')],
             dataset_name=config['datasets'],
             file_type=['markers', 'pred'],
         )

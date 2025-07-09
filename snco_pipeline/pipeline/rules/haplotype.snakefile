@@ -188,3 +188,16 @@ rule run_haplotyping:
           -o {params.output_prefix} \
           {input.bam}
         '''
+
+
+rule haplotyping_report:
+    input:
+        markers=results('haplotypes/{dataset_name}.markers.json'),
+        preds=results('haplotypes/{dataset_name}.pred.json'),
+        stats=results('haplotypes/{dataset_name}.pred.stats.tsv'),
+    log:
+        notebook=results('analysis/{dataset_name}.haplotyping_report.py.ipynb')
+    conda:
+        get_conda_env('snco')
+    notebook:
+        '../notebook_templates/haplotyping_report.py.ipynb'
