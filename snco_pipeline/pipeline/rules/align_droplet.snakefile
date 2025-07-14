@@ -66,6 +66,7 @@ def get_adapter_parameters(wc, input):
           --soloCBwhitelist {whitelist} \
           --soloBarcodeReadLength 0 \
           --soloCBmatchWLtype "1MM" \
+          --outSAMattributes "NH" "HI" "AS" "nM" "RG" "CB" \
         '''
     elif tech_type.startswith('10x_rna'):
         params = f'''\
@@ -78,6 +79,7 @@ def get_adapter_parameters(wc, input):
           --soloCBstart 1 \
           --soloUMIlen 12 \
           --soloUMIstart 17 \
+          --outSAMattributes "NH" "HI" "AS" "nM" "RG" "CB" "UB" \
         '''
     elif tech_type == 'bd_rna':
         params = f'''\
@@ -89,6 +91,7 @@ def get_adapter_parameters(wc, input):
           --soloCBmatchWLtype "1MM" \
           --soloCBposition 2_0_2_8 2_13_2_21 3_1_3_9 \
           --soloUMIposition 3_10_3_17 \
+          --outSAMattributes "NH" "HI" "AS" "nM" "RG" "CB" "UB" \
         '''
     else:
         raise NotImplementedError()
@@ -202,7 +205,6 @@ rule STAR_consensus:
           --outBAMsortingBinsN 150 \
           --limitBAMsortRAM {params.sort_mem} \
           --outSAMattrRGline "ID:{wildcards.qry}" \
-          --outSAMattributes "NH" "HI" "AS" "nM" "RG" "CB" "UB" \
           {params.transform_flag}
 
         cd $RELPATH
