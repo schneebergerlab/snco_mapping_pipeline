@@ -12,7 +12,7 @@ rule cell_barcode_rc:
     input:
         barcode=raw_data(f'{{sample_name}}{config["file_suffixes"]["barcode"]}'),
     output:
-        barcode=raw_data('{sample_name}.bc_rc.fastq.gz'),
+        barcode=raw_data(f'{{sample_name}}{config["file_suffixes"]["barcode_rc"]}'),
     conda:
         '../env_yamls/seqtk.yaml'
     shell:
@@ -121,7 +121,7 @@ def get_input_flags(wc, input):
     '''
     tech_type = config['datasets'][wc.dataset_name]['technology']
     all_fastqs = it.chain(*(
-        (input.read, input.mate.input.barcode)
+        (input.read, input.mate, input.barcode)
         if tech_type == '10x_atac'
         else (input.read, input.barcode)
     ))

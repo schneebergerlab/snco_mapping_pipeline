@@ -2,6 +2,25 @@ import os
 import math
 import gzip
 from glob import glob
+from collections import defaultdict
+
+
+SAMPLE_NAME_DATASET_MAPPING = {}
+DATASET_SAMPLE_NAME_MAPPING = defaultdict(list)
+for dataset_name in config['datasets']:
+    # config only stores dataset_name -> sample_name_glob relationship
+    # use globbing to determine the sample_name -> dataset_name relationship
+    for basename_glob in config['datasets'][dataset_name]['input_file_basenames']:
+        # create glob.glob style globbing string for identifying files matching the input_file_basenames pattern
+        read1_glob = raw_data(f'{basename_glob}{config["file_suffixes"]["read1"]}')
+        # create a snakemake glob_wildcards style glob for extracting the fully expanded sample_names
+        sn_wildcards_read1_glob = raw_data(f'{{sample_name}}{config["file_suffixes"]["read1"]}')
+        sample_names = glob_wildcards(sn_wildcards_read1_glob, files=glob(read1_glob)).sample_name
+        # add the sample names to the reference mappings
+        for sn in sample_names:
+            SAMPLE_NAME_DATASET_MAPPING[sn] = dataset_name
+            DATASET_SAMPLE_NAME_MAPPING[dataset_name].append(sn)
+
 
 def get_star_index_input(wc):
     '''input for STAR genome index generation'''
@@ -113,15 +132,9 @@ def get_geno_group(dataset_name):
 
 def get_star_fastq_input(dataset_name, fastq_type):
     '''use globbing to identify all the input fastqs for a dataset from input_file_basenames'''
-    fastq_fn_globs = expand(
+    sample_names = DATASET_SAMPLE_NAME_MAPPING[dataset_name]
+    return expand(
         raw_data('{sample_name}{file_suffix}'),
-        sample_name=config['datasets'][dataset_name]['input_file_basenames'],
+        sample_name=sample_names,
         file_suffix=config['file_suffixes'][fastq_type]
     )
-    fastq_fns = []
-    for fq_fn_glb in fastq_fn_globs:
-        fq_fns = glob(fq_fn_glb)
-        if not fq_fns:
-            raise ValueError(f'could not identify any files matching pattern "{fq_fn_glb}"')
-        fastq_fns += fq_fns
-    return fastq_fns

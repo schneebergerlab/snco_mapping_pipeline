@@ -3,18 +3,6 @@ from glob import glob
 include: './align_common.snakefile'
 
 
-DATASET_SAMPLE_NAME_MAPPING = {}
-for dataset_name in config['datasets']:
-    # config only stores dataset_name -> sample_name_glob relationship
-    # use globbing to determine the sample_name -> dataset_name relationship
-    sample_names = glob_wildcards(
-        raw_data(f'{{sample_name}}{config["file_suffixes"]["read1"]}'),
-        files=get_star_fastq_input(dataset_name, 'read1')
-    ).sample_name
-    for sn in sample_names:
-        DATASET_SAMPLE_NAME_MAPPING[sn] = dataset_name
-
-
 def STAR_consensus_input(wc):
     '''
     full input to STAR consensus (plate mode WITHOUT STARsolo).
@@ -22,7 +10,7 @@ def STAR_consensus_input(wc):
       - index: the STAR index generated from the reference genome plus VCF transform
       - read, mate: the fastq files for the sample - represents a single individual/barcode
     '''
-    dataset_name = DATASET_SAMPLE_NAME_MAPPING[wc.sample_name]
+    dataset_name = SAMPLE_NAME_DATASET_MAPPING[wc.sample_name]
     dataset = config['datasets'][dataset_name]
     tech_type = dataset['technology']
     ref_name = dataset['reference_genotype']
@@ -36,7 +24,7 @@ def STAR_consensus_input(wc):
 
 def get_transform_flag(wc):
     '''STAR genome transform flag - necessary if index has a VCF transformation'''
-    dataset_name = DATASET_SAMPLE_NAME_MAPPING[wc.sample_name]
+    dataset_name = SAMPLE_NAME_DATASET_MAPPING[wc.sample_name]
     dataset = config['datasets'][dataset_name]
     ref = dataset['reference_genotype']
     if wc.qry != ref:
@@ -135,7 +123,7 @@ rule sort_bam_by_name:
 
 def get_merge_haps_input(wc):
     '''Expand all haplotypes that have been aligned to for a sample/barcode to create merge input'''
-    dataset_name = DATASET_SAMPLE_NAME_MAPPING[wc.sample_name]
+    dataset_name = SAMPLE_NAME_DATASET_MAPPING[wc.sample_name]
     dataset = config['datasets'][dataset_name]
     qrys = set()
     for geno in dataset['genotypes'].values():
@@ -201,10 +189,7 @@ rule collapse_alignments:
 
 def merge_samples_input(wc):
     '''input for sample/barcode-wise merging'''
-    sample_names = glob_wildcards(
-        raw_data(f'{{sample_name}}{config["file_suffixes"]["read1"]}'),
-        files=get_star_fastq_input(wc.dataset_name, 'read1')
-    ).sample_name
+    sample_names = DATASET_SAMPLE_NAME_MAPPING[wc.dataset_name]
     return expand(
         results('aligned_data/single_barcodes/{sample_name}.sorted.bam'),
         sample_name=sample_names

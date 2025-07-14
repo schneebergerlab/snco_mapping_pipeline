@@ -24,6 +24,8 @@ annotations:
 # input fastq files will be searched for within this directory
 raw_data_dir: "{{ raw_data_dir | default('raw_data')}}"
 
+# results will be created within this dir
+results_dir: "{{ results_dir |  default('results')}}"
 
 # sample ids and sample specific information
 datasets:
@@ -74,10 +76,6 @@ conda_envs:
   msyd: null # environment used for rules involving syri and msyd (see https://github.com/schneebergerlab)
   star: null # environment used for rules involving STAR, requires STAR=2.7.11a
   snco: null # environment used for rules involving snco, also requires seaborn, ipykernel, nbconvert
-
-
-# results will be created within this dir
-results_dir: "{{ results_dir |  default('results')}}"
 
 
 ### PIPELINE PARAMS:
