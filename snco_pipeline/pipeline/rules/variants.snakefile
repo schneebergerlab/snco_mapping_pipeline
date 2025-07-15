@@ -11,6 +11,7 @@ rule mappability:
         kmer_size=config['variants']['mappability']['kmer_size'],
         edit_dist=config['variants']['mappability']['edit_dist'],
         min_mappability=config['variants']['mappability']['min_mappability'],
+        mask_gap_size=config['variants']['mappability']['mask_gap_size'],
         bedgraph_prefix=lambda wc: annotation(f'{wc.geno}.mappability')
     threads: 16
     conda:
@@ -24,7 +25,8 @@ rule mappability:
           -I {input.fasta}.genmap_idx \
           -O {params.bedgraph_prefix}
         awk '$4 < {params.min_mappability}' {output.bedgraph} | \
-        bedtools slop -l 0 -r {params.kmer_size} -g {input.fai} -i stdin | \
+        bedtools slop -l 0 -r {params.kmer_size} -g {input.fai} -i stdin | 
+        bedtools merge -d {params.mask_gap_size} -i stdin | \
         bedtools maskfasta -soft -fi {input.fasta} -bed stdin -fo {output.fasta}
         samtools faidx {output.fasta}
         rm -rf {input.fasta}.genmap_idx
@@ -49,7 +51,7 @@ rule minimap2_wga:
         get_conda_env('minimap2')
     shell:
         '''
-        minimap2 --eqx -t {threads} \
+        minimap2 --eqx -t {threads} -N 100 \
           -ax {params.preset} \
           -z{params.zdrop} \
           {input.ref} {input.qry} | \

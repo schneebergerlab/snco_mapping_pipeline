@@ -72,7 +72,6 @@ conda_envs:
   minimap2: null # environment used for rules involving minimap2, requires minimap2, samtools
   htslib: null # environment used for rules involving samtools/bcftools/bgzip/tabix
   seqtk: null # environment used for rules involving seqtk
-  picard: null # environment used for rules involving picard tools (MarkDuplicates)
   msyd: null # environment used for rules involving syri and msyd (see https://github.com/schneebergerlab)
   star: null # environment used for rules involving STAR, requires STAR=2.7.11a
   snco: null # environment used for rules involving snco, also requires seaborn, ipykernel, nbconvert
@@ -87,8 +86,9 @@ preprocessing:
 variants:
   mappability:
     kmer_size: 100 # the kmer size for genmap mappability calculation
-    edit_dist: 1 # number of edits allowed between kmers to consider them the same
+    edit_dist: 2 # number of edits allowed between kmers to consider them the same
     min_mappability: 0.51 # the min mappability to keep variants in - others are removed
+    mask_gap_size: 500 # min number of basepairs between two low mappability regions before they are merged together
   minimap2:
     preset: "asm10"
     zdrop: "500" # can be a single int or pair of ints, see minimap manual

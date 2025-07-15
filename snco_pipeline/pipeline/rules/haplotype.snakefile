@@ -13,26 +13,19 @@ rule remove_pcr_duplicates:
         bai=results('aligned_data/{dataset_name}.sorted.bam.bai'),
     output:
         bam=temp(results('aligned_data/{dataset_name}.deduped.bam')),
-        metrics=results('aligned_data/{dataset_name}.dedup_metrics.txt'),
         bai=temp(results('aligned_data/{dataset_name}.deduped.bam.bai')),
     params:
         cb_tag=get_cb_tag_id,
     resources:
         mem_mb=10_000,
     conda:
-        get_conda_env('picard')
+        get_conda_env('htslib')
+    threads: 12
     shell:
         '''
-        samtools view -b -f2 {input.bam} > "{input.bam}.mapped.tmp.bam"
-        picard MarkDuplicates \
-          -I "{input.bam}.mapped.tmp.bam" \
-          -M {output.metrics} \
-          -O {output.bam} \
-          --ASSUME_SORT_ORDER coordinate \
-          --BARCODE_TAG "{params.cb_tag}" \
-          --MAX_OPTICAL_DUPLICATE_SET_SIZE -1 \
-          --REMOVE_DUPLICATES "true"
-        rm "{input.bam}.mapped.tmp.bam"
+        samtools markdup -r -@ {threads} \
+          --barcode-tag {params.cb_tag} \
+          {input.bam} {output.bam}
         samtools index {output.bam}
         '''
 

@@ -234,7 +234,8 @@ rule sort_bam_by_name:
         get_conda_env('htslib')
     shell:
         '''
-        samtools sort -n -@ {threads} {input.bam} > {output.bam}
+        samtools sort -n -@ {threads} {input.bam} |
+        samtools fixmate -m - > {output.bam}
         '''
 
 
