@@ -235,7 +235,7 @@ rule sort_bam_by_name:
     shell:
         '''
         samtools sort -n -@ {threads} {input.bam} |
-        samtools fixmate -m - > {output.bam}
+        samtools fixmate -m - {output.bam}
         '''
 
 

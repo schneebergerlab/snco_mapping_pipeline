@@ -99,7 +99,7 @@ def get_tech_specific_params(wc):
     tech_type = config['datasets'][wc.dataset_name]['technology']
     ploidy = config['datasets'][wc.dataset_name]['ploidy']
     if tech_type == "10x_atac":
-        params = '''\
+        params = f'''\
           -x 10x_atac \
           -y {ploidy} \
           --cb-tag CB \
