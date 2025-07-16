@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="snco_pipeline",
-    version="0.1.0",
+    version="0.1.1",
     description="Pipeline tool for mapping reads for crossover analysis with snco",
     author="Matthew Parker",
     author_email="mparker@mpipz.mpg.de",
