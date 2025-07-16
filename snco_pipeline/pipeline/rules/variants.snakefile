@@ -175,6 +175,8 @@ rule blacklist_nonsyntenic_overlapping:
         blacklist=annotation('bed/{geno_group}.blacklist.bed')
     conda:
         get_conda_env('genmap')
+    params:
+        mask_gap_size=config['variants']['mappability']['mask_gap_size'],
     shell:
         '''
         for bam in {input.bams}; do \
@@ -183,7 +185,7 @@ rule blacklist_nonsyntenic_overlapping:
           awk '$4 > 1'; \
         done >> {output.blacklist}.tmp.bed
         sort -k1,1 -k2,2n {output.blacklist}.tmp.bed | \
-        bedtools merge -i stdin > {output.blacklist}
+        bedtools merge -d {params.mask_gap_size} -i stdin > {output.blacklist}
         rm {output.blacklist}.tmp.bed
         '''
 
