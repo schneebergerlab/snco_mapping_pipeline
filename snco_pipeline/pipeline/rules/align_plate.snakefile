@@ -22,13 +22,23 @@ def STAR_consensus_input(wc):
     }
 
 
+def get_readfiles_cmd(wc, input):
+    '''
+    create flags files, checking if they are gzipped and add readFilesCommand
+    '''
+    if all([fn.endswith('.gz') for fn in (input.read, input.mate)]):
+        return '--readFilesCommand "zcat"'
+    else:
+        return ''
+
+
 def get_transform_flag(wc):
     '''STAR genome transform flag - necessary if index has a VCF transformation'''
     dataset_name = SAMPLE_NAME_DATASET_MAPPING[wc.sample_name]
     dataset = config['datasets'][dataset_name]
     ref = dataset['reference_genotype']
     if wc.qry != ref:
-        return '--genomeTransformOutput SAM'
+        return '--genomeTransformOutput "SAM"'
     else:
         return ''
 
@@ -54,6 +64,7 @@ rule STAR_consensus:
         bai=temp(results('aligned_data/single_barcodes/haploid/{sample_name}.{qry}.sorted.bam.bai')),
     params:
         star_tmp_dir=get_temp_dir,
+        readfiles_cmd=get_readfiles_cmd,
         transform_flag=get_transform_flag,
         filter_multimap_nmax=config['alignment']['star']['filter_multimap_nmax'],
         filter_mismatch_nmax=config['alignment']['star']['filter_mismatch_nmax'],
@@ -68,37 +79,39 @@ rule STAR_consensus:
     conda:
         get_conda_env('star')
     shell:
-        '''
-        mkdir -p {params.star_tmp_dir}
-        RELPATH=$(realpath --relative-to="{params.star_tmp_dir}" ".")
-        cd {params.star_tmp_dir}
-        STAR \
-          --runThreadN {threads} \
-          --genomeDir "${{RELPATH}}/{input.index}" \
-          --readFilesCommand "zcat" \
-          --readFilesIn "${{RELPATH}}/{input.read}" "${{RELPATH}}/{input.mate}" \
-          --alignIntronMax 1 \
-          --alignMatesGapMax {params.align_mates_gap_max} \
-          --outFilterMultimapNmax {params.filter_multimap_nmax} \
-          --outFilterMismatchNmax {params.filter_mismatch_nmax} \
-          --outSAMtype "BAM" "Unsorted" \
-          --outSAMattrRGline "ID:{wildcards.qry}" \
-          --outSAMattributes "NH" "HI" "AS" "nM" "RG" \
+        format_command('''
+        mkdir -p {params.star_tmp_dir};
+        RELPATH=$(realpath --relative-to="{params.star_tmp_dir}" ".");
+        cd {params.star_tmp_dir};
+
+        STAR
+          --runThreadN {threads}
+          --genomeDir "${{RELPATH}}/{input.index}"
+          {params.readfiles_cmd}
+          --readFilesIn "${{RELPATH}}/{input.read}" "${{RELPATH}}/{input.mate}"
+          --alignIntronMax 1
+          --alignMatesGapMax {params.align_mates_gap_max}
+          --outFilterMultimapNmax {params.filter_multimap_nmax}
+          --outFilterMismatchNmax {params.filter_mismatch_nmax}
+          --outSAMtype "BAM" "Unsorted"
+          --outSAMattrRGline "ID:{wildcards.qry}"
           {params.transform_flag}
+          --outSAMattributes "NH" "HI" "AS" "nM" "RG";
 
-        cd $RELPATH
-        mv {params.star_tmp_dir}/Log.progress.out {log.progress}
-        mv {params.star_tmp_dir}/Log.final.out {log.final}
-        mv {params.star_tmp_dir}/Log.out {log.main}
+        cd $RELPATH;
+        mv {params.star_tmp_dir}/Log.progress.out {log.progress};
+        mv {params.star_tmp_dir}/Log.final.out {log.final};
+        mv {params.star_tmp_dir}/Log.out {log.main};
 
-        samtools sort \
-          -m 1G -@ {threads} \
-          -o {output.bam} \
-          {params.star_tmp_dir}/Aligned.out.bam
-        samtools index {output.bam}
-          
+        samtools sort
+          -m 1G -@ {threads}
+          -o {output.bam}
+          {params.star_tmp_dir}/Aligned.out.bam;
+
+        samtools index {output.bam};
+
         rm -rf {params.star_tmp_dir}
-        '''
+        ''')
 
 
 rule sort_bam_by_name:
@@ -116,9 +129,11 @@ rule sort_bam_by_name:
     conda:
         get_conda_env('htslib')
     shell:
-        '''
-        samtools sort -n -@ {threads} {input.bam} > {output.bam}
-        '''
+        format_command('''
+        samtools sort -n -@ {threads}
+          {input.bam}
+          > {output.bam};
+        ''')
 
 
 def get_merge_haps_input(wc):
@@ -149,9 +164,11 @@ rule merge_name_sorted_hap_bams:
     conda:
         get_conda_env('htslib')
     shell:
-        '''
-        samtools merge -@ {threads} -n {output.bam} {input.bams}
-        '''
+        format_command('''
+        samtools merge -@ {threads}
+          -n {output.bam}
+          {input.bams};
+        ''')
 
 
 rule collapse_alignments:
@@ -172,19 +189,22 @@ rule collapse_alignments:
     conda:
         get_conda_env('snco')
     shell:
-        '''
-        collapse_ha_specific_alns.py \
-          -o {output.bam}.unsorted.bam {input.bam}
-        samtools addreplacerg  \
-          -r "ID:{wildcards.sample_name}" \
-          {output.bam}.unsorted.bam | \
-        samtools sort -@ {threads} \
-          -T ${{TMPDIR}}/{wildcards.sample_name} \
-          -o {output.bam} -
-        # add sample_name as read group to 
-        samtools index {output.bam}
+        format_command('''
+        collapse_ha_specific_alns.py
+          -o {output.bam}.unsorted.bam
+          {input.bam};
+
+        samtools addreplacerg
+          -r "ID:{wildcards.sample_name}"
+          {output.bam}.unsorted.bam |
+        samtools sort -@ {threads}
+          -T ${{TMPDIR}}/{wildcards.sample_name}
+          -o {output.bam} - ;
+
+        samtools index {output.bam};
+
         rm {output.bam}.unsorted.bam
-        '''
+        ''')
 
 
 def merge_samples_input(wc):
@@ -218,8 +238,10 @@ rule merge_bams:
         get_conda_env('htslib')
     threads: 24
     shell:
-        '''
-        ulimit -n 5000
-        samtools merge -@ {threads} -b {input} -o {output.bam}
-        samtools index {output.bam}
-        '''
+        format_command('''
+        ulimit -n 5000;
+
+        samtools merge -@ {threads} -b {input} -o {output.bam};
+
+        samtools index {output.bam};
+        ''')

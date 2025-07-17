@@ -1,5 +1,20 @@
+import re
 import os
 from snakemake.io import ancient, expand
+
+
+def format_command(cmd):
+    cmd = [line.rstrip() for line in cmd.splitlines()]
+    # replace trailing ";" with ";\n" for readability with --printshellcmds
+    formatted = []
+    for line in cmd:
+        if not line.strip():
+            continue
+        elif re.search(';$', line):
+            formatted.append(f'{line}\n')
+        else:
+            formatted.append(f'{line} \\\n')
+    return ''.join(formatted).strip('\n').strip('\\')
 
 
 def resolve_path(basedir, path):

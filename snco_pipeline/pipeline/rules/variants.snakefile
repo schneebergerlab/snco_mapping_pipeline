@@ -17,20 +17,29 @@ rule mappability:
     conda:
         get_conda_env('genmap')
     shell:
-        '''
-        genmap index -F {input.fasta} -I {input.fasta}.genmap_idx
-        genmap map -bg -T {threads} \
-          -K {params.kmer_size} \
-          -E {params.edit_dist} \
-          -I {input.fasta}.genmap_idx \
-          -O {params.bedgraph_prefix}
-        awk '$4 < {params.min_mappability}' {output.bedgraph} | \
-        bedtools slop -l 0 -r {params.kmer_size} -g {input.fai} -i stdin | 
-        bedtools merge -d {params.mask_gap_size} -i stdin | \
-        bedtools maskfasta -soft -fi {input.fasta} -bed stdin -fo {output.fasta}
-        samtools faidx {output.fasta}
-        rm -rf {input.fasta}.genmap_idx
-        '''
+        format_command('''
+        genmap index -F {input.fasta} -I {input.fasta}.genmap_idx;
+
+        genmap map -bg -T {threads}
+          -K {params.kmer_size}
+          -E {params.edit_dist}
+          -I {input.fasta}.genmap_idx
+          -O {params.bedgraph_prefix};
+
+        awk '$4 < {params.min_mappability}' {output.bedgraph} |
+        bedtools slop -l 0 -r {params.kmer_size}
+          -g {input.fai}
+          -i stdin |
+        bedtools merge -d {params.mask_gap_size}
+          -i stdin |
+        bedtools maskfasta -soft
+          -fi {input.fasta}
+          -bed stdin
+          -fo {output.fasta};
+
+        samtools faidx {output.fasta};
+        rm -rf {input.fasta}.genmap_idx;
+        ''')
 
 
 rule minimap2_wga:
@@ -50,15 +59,16 @@ rule minimap2_wga:
     conda:
         get_conda_env('minimap2')
     shell:
-        '''
-        minimap2 --eqx -t {threads} -N 100 \
-          -ax {params.preset} \
-          -z{params.zdrop} \
-          {input.ref} {input.qry} | \
-        samtools view -bS | \
-        samtools sort -o - - > {output}
+        format_command('''
+        minimap2 --eqx -t {threads} -N 100
+          -ax {params.preset}
+          -z{params.zdrop}
+          {input.ref} {input.qry} |
+        samtools view -bS |
+        samtools sort -o - - > {output};
+
         samtools index {output}
-        '''
+        ''')
 
 
 rule run_syri:
@@ -78,16 +88,16 @@ rule run_syri:
         filter_alns='' if config['variants']['syri']['use_low_qual_filters'] else '-f',
         out_dir=annotation('vcf/syri')
     shell:
-        '''
-        syri -F B --hdrseq \
-          {params.filter_alns} \
-          --dir {params.out_dir} \
-          --prefix {wildcards.ref}.{wildcards.qry}. \
-          -c {input.bam} \
-          -q {input.qry} \
-          -r {input.ref} \
-          --samplename {wildcards.qry}
-        '''
+        format_command('''
+        syri -F B --hdrseq
+          {params.filter_alns}
+          --dir {params.out_dir}
+          --prefix {wildcards.ref}.{wildcards.qry}.
+          -c {input.bam}
+          -q {input.qry}
+          -r {input.ref}
+          --samplename {wildcards.qry};
+        ''')
 
 
 def get_msyd_input(wc):
@@ -138,21 +148,24 @@ rule run_msyd:
     conda:
         get_conda_env('msyd')
     shell:
-        '''
-        msyd call --core \
-          -i {input.cfg} \
-          -r {input.ref_fasta} \
-          -o {output.pff} \
-          -m {output.vcf}.tmp.vcf
-        bcftools annotate \
-          --exclude 'ALT ~ "CORESYN"' \
-          --remove "FORMAT/CHR,FORMAT/START,FORMAT/END,INFO/PID" \
-          {output.vcf}.tmp.vcf | \
-        grep -v "^##ALT" | grep -v "^##INFO" | \
-        bcftools sort | \
-        bcftools filter -S0 -e 'GT=="."' > {output.vcf}
-        rm {output.vcf}.tmp.vcf
-        '''
+        format_command('''
+        msyd call --core
+          -i {input.cfg}
+          -r {input.ref_fasta}
+          -o {output.pff}
+          -m {output.vcf}.tmp.vcf;
+
+        bcftools annotate
+          --exclude 'ALT ~ "CORESYN"'
+          --remove "FORMAT/CHR,FORMAT/START,FORMAT/END,INFO/PID"
+          {output.vcf}.tmp.vcf |
+        grep -v "^##ALT" |
+        grep -v "^##INFO" |
+        bcftools sort |
+        bcftools filter -S0 -e 'GT=="."' > {output.vcf};
+
+        rm {output.vcf}.tmp.vcf;
+        ''')
 
 
 def blacklist_input(wc):
@@ -178,16 +191,18 @@ rule blacklist_nonsyntenic_overlapping:
     params:
         mask_gap_size=config['variants']['mappability']['mask_gap_size'],
     shell:
-        '''
-        for bam in {input.bams}; do \
-          bedtools bamtobed -i $bam | \
-          bedtools genomecov -g {input.fai} -bg -i stdin | \
-          awk '$4 > 1'; \
-        done >> {output.blacklist}.tmp.bed
-        sort -k1,1 -k2,2n {output.blacklist}.tmp.bed | \
-        bedtools merge -d {params.mask_gap_size} -i stdin > {output.blacklist}
-        rm {output.blacklist}.tmp.bed
-        '''
+        format_command('''
+        for bam in {input.bams}; do
+          bedtools bamtobed -i $bam |
+          bedtools genomecov -g {input.fai} -bg -i stdin |
+          awk '$4 > 1';
+        done >> {output.blacklist}.tmp.bed;
+
+        sort -k1,1 -k2,2n {output.blacklist}.tmp.bed |
+        bedtools merge -d {params.mask_gap_size} -i stdin > {output.blacklist};
+
+        rm {output.blacklist}.tmp.bed;
+        ''')
 
 
 
@@ -225,12 +240,17 @@ rule filter_msyd_snps_for_star_consensus:
         max_indel_size=config['variants']['star_consensus']['max_indel_size'],
         blacklist_flag=lambda wc, input: f'-T "^{input.blacklist}"' if hasattr(input, 'blacklist') else ''
     shell:
-        r'''
-        bcftools view -s {wildcards.qry} {input.vcf} | \
-        bcftools view -i 'GT=="alt"' {params.blacklist_flag} | \
-        bcftools view -G \
-          -e "STRLEN(REF)>{params.max_indel_size} || STRLEN(ALT)>{params.max_indel_size}" | \
-        awk '$0 ~ /^##/ || $4 !~ /[acgtryswkmbdhvnSWKMBDHVN]/ || $5 !~ /[acgtryswkmbdhvnSWKMBDHVN]/' | \
-        bcftools norm --remove-duplicates -f {input.fasta} \
-        > {output.vcf}
-        '''
+        format_command(r'''
+        bcftools view 
+          -s {wildcards.qry}
+          {input.vcf} |
+        bcftools view
+          -i 'GT=="alt"'
+          {params.blacklist_flag} |
+        bcftools view -G
+          -e "STRLEN(REF)>{params.max_indel_size} || STRLEN(ALT)>{params.max_indel_size}" |
+        awk '$0 ~ /^##/ || $4 !~ /[acgtryswkmbdhvnSWKMBDHVN]/ || $5 !~ /[acgtryswkmbdhvnSWKMBDHVN]/' |
+        bcftools norm --remove-duplicates 
+          -f {input.fasta}
+        > {output.vcf};
+        ''')

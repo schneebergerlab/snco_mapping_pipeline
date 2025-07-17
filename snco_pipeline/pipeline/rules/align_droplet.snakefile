@@ -16,9 +16,10 @@ rule cell_barcode_rc:
     conda:
         '../env_yamls/seqtk.yaml'
     shell:
-        '''
-        seqtk seq -r {input.barcode} | bgzip > {output.barcode}
-        '''
+        format_command('''
+        seqtk seq -r {input.barcode} |
+          bgzip > {output.barcode};
+        ''')
 
 
 def STAR_consensus_input(wc):
@@ -61,41 +62,41 @@ def get_adapter_parameters(wc, input):
     whitelist = ' '.join(f'${{RELPATH}}/{fn}' for fn in input.barcode_whitelist)
     barcode_read_length = get_read_length(input.barcode[0])
     if tech_type == '10x_atac':
-        params = f'''\
-          --soloType "CB_samTagOut" \
-          --soloCBwhitelist {whitelist} \
-          --soloBarcodeReadLength 0 \
-          --soloCBmatchWLtype "1MM" \
-          --outSAMattributes "NH" "HI" "AS" "nM" "RG" "CB" \
+        params = f'''
+          --soloType "CB_samTagOut"
+          --soloCBwhitelist {whitelist}
+          --soloBarcodeReadLength 0
+          --soloCBmatchWLtype "1MM"
+          --outSAMattributes "NH" "HI" "AS" "nM" "RG" "CB"
         '''
     elif tech_type.startswith('10x_rna'):
-        params = f'''\
-          --soloType "CB_UMI_Simple" \
-          --soloCBwhitelist {whitelist} \
-          --soloBarcodeReadLength {barcode_read_length} \
-          --soloUMIdedup {config["alignment"]["star"]["rna"]["umi_dedup_method"]} \
-          --soloCBmatchWLtype "1MM" \
-          --soloCBlen 16 \
-          --soloCBstart 1 \
-          --soloUMIlen 12 \
-          --soloUMIstart 17 \
-          --outSAMattributes "NH" "HI" "AS" "nM" "RG" "CB" "UB" \
+        params = f'''
+          --soloType "CB_UMI_Simple"
+          --soloCBwhitelist {whitelist}
+          --soloBarcodeReadLength {barcode_read_length}
+          --soloUMIdedup {config["alignment"]["star"]["rna"]["umi_dedup_method"]}
+          --soloCBmatchWLtype "1MM"
+          --soloCBlen 16
+          --soloCBstart 1
+          --soloUMIlen 12
+          --soloUMIstart 17
+          --outSAMattributes "NH" "HI" "AS" "nM" "RG" "CB" "UB"
         '''
     elif tech_type == 'bd_rna':
-        params = f'''\
-          --soloType "CB_UMI_Complex" \
-          --soloCBwhitelist {whitelist} \
-          --soloBarcodeReadLength {barcode_read_length} \
-          --soloUMIdedup {config["alignment"]["star"]["rna"]["umi_dedup_method"]} \
-          --soloAdapterSequence "NNNNNNNNNGTGANNNNNNNNNGACA" \
-          --soloCBmatchWLtype "1MM" \
-          --soloCBposition 2_0_2_8 2_13_2_21 3_1_3_9 \
-          --soloUMIposition 3_10_3_17 \
-          --outSAMattributes "NH" "HI" "AS" "nM" "RG" "CB" "UB" \
+        params = f'''
+          --soloType "CB_UMI_Complex"
+          --soloCBwhitelist {whitelist}
+          --soloBarcodeReadLength {barcode_read_length}
+          --soloUMIdedup {config["alignment"]["star"]["rna"]["umi_dedup_method"]}
+          --soloAdapterSequence "NNNNNNNNNGTGANNNNNNNNNGACA"
+          --soloCBmatchWLtype "1MM"
+          --soloCBposition 2_0_2_8 2_13_2_21 3_1_3_9
+          --soloUMIposition 3_10_3_17
+          --outSAMattributes "NH" "HI" "AS" "nM" "RG" "CB" "UB"
         '''
     else:
         raise NotImplementedError()
-    return params
+    return format_command(params.lstrip())
 
 
 def get_transform_flag(wc):
@@ -129,34 +130,39 @@ def get_input_flags(wc, input):
         else (input.read, input.barcode)
     ))
     if all([fn.endswith('.gz') for fn in all_fastqs]):
-        flag = '--readFilesCommand "zcat" --readFilesIn '
+        flag = '''
+          --readFilesCommand "zcat" 
+          --readFilesIn'''
     else:
-        flag = '--readFilesIn '
+        flag = '''
+          --readFilesIn'''
+    flag += ' '
     flag += ','.join(f'${{RELPATH}}/{fn}' for fn in input.read)
     if tech_type == '10x_atac':
         flag += ' '
         flag += ','.join(f'${{RELPATH}}/{fn}' for fn in input.mate)
     flag += ' '
     flag += ','.join(f'${{RELPATH}}/{fn}' for fn in input.barcode)
-    return flag
+    return format_command(flag.lstrip())
     
 
 def get_spliced_alignment_params(wc):
     '''splicing/fragment size parameters for STAR'''
     tech_type = config['datasets'][wc.dataset_name]['technology']
     if tech_type == "10x_atac":
-        return f'''\
-          --alignIntronMax 1 \
-          --alignMatesGapMax {config["alignment"]["star"]["atac"]["mates_gap_max"]} \
+        params = f'''
+          --alignIntronMax 1
+          --alignMatesGapMax {config["alignment"]["star"]["atac"]["mates_gap_max"]}
         '''
     else:
-        return f'''\
+        params = f'''
           --outFilterIntronMotifs RemoveNoncanonical \
-          --alignSJoverhangMin {config["alignment"]["star"]["rna"]["align_sj_overhang_min"]} \
-          --alignSJDBoverhangMin {config["alignment"]["star"]["rna"]["align_sjdb_overhang_min"]} \
-          --alignIntronMin {config["alignment"]["star"]["rna"]["align_intron_min"]} \
-          --alignIntronMax {config["alignment"]["star"]["rna"]["align_intron_max"]} \
+          --alignSJoverhangMin {config["alignment"]["star"]["rna"]["align_sj_overhang_min"]}
+          --alignSJDBoverhangMin {config["alignment"]["star"]["rna"]["align_sjdb_overhang_min"]}
+          --alignIntronMin {config["alignment"]["star"]["rna"]["align_intron_min"]}
+          --alignIntronMax {config["alignment"]["star"]["rna"]["align_intron_max"]}
         '''
+    return format_command(params.lstrip())
 
 
 rule STAR_consensus:
@@ -188,34 +194,38 @@ rule STAR_consensus:
     conda:
         get_conda_env('star')
     shell:
-        '''
-        mkdir -p {params.star_tmp_dir}
-        RELPATH=$(realpath --relative-to="{params.star_tmp_dir}" ".")
-        cd {params.star_tmp_dir}
-        ulimit -n {params.n_files}
-        STAR \
-          --runThreadN {threads} \
-          --genomeDir "${{RELPATH}}/{input.index}" \
-          {params.input_flag} \
-          {params.adapter_parameters} \
-          {params.splicing_parameters} \
-          --outFilterMultimapNmax {params.filter_multimap_nmax} \
-          --outFilterMismatchNmax {params.filter_mismatch_nmax} \
-          --outSAMtype "BAM" "SortedByCoordinate" \
-          --outBAMsortingBinsN 150 \
-          --limitBAMsortRAM {params.sort_mem} \
-          --outSAMattrRGline "ID:{wildcards.qry}" \
+        format_command('''
+        mkdir -p {params.star_tmp_dir};
+        RELPATH=$(realpath --relative-to="{params.star_tmp_dir}" ".");
+        cd {params.star_tmp_dir};
+        ulimit -n {params.n_files};
+        STAR
+          --runThreadN {threads}
+          --genomeDir "${{RELPATH}}/{input.index}"
+          {params.input_flag}
+          {params.adapter_parameters}
+          {params.splicing_parameters}
+          --outFilterMultimapNmax {params.filter_multimap_nmax}
+          --outFilterMismatchNmax {params.filter_mismatch_nmax}
+          --outSAMtype "BAM" "SortedByCoordinate"
+          --outBAMsortingBinsN 150
+          --limitBAMsortRAM {params.sort_mem}
           {params.transform_flag}
+          --outSAMattrRGline "ID:{wildcards.qry}";
 
-        cd $RELPATH
-        mv {params.star_tmp_dir}/Aligned.sortedByCoord.out.bam {output.bam}
-        samtools index {output.bam}
-        mv {params.star_tmp_dir}/Log.progress.out {log.progress}
-        mv {params.star_tmp_dir}/Log.final.out {log.final}
-        mv {params.star_tmp_dir}/Log.out {log.main}
+        cd $RELPATH;
+        mv {params.star_tmp_dir}/Aligned.sortedByCoord.out.bam
+          {output.bam};
+        samtools index {output.bam};
+        mv {params.star_tmp_dir}/Log.progress.out
+          {log.progress};
+        mv {params.star_tmp_dir}/Log.final.out
+          {log.final};
+        mv {params.star_tmp_dir}/Log.out
+          {log.main};
 
-        rm -rf {params.star_tmp_dir}
-        '''
+        rm -rf {params.star_tmp_dir};
+        ''')
 
 
 rule sort_bam_by_name:
@@ -233,10 +243,10 @@ rule sort_bam_by_name:
     conda:
         get_conda_env('htslib')
     shell:
-        '''
+        format_command('''
         samtools sort -n -@ {threads} {input.bam} |
-        samtools fixmate -m - {output.bam}
-        '''
+        samtools fixmate -m - {output.bam};
+        ''')
 
 
 def get_merge_input(wc):
@@ -266,9 +276,11 @@ rule merge_name_sorted_bams:
     conda:
         get_conda_env('htslib')
     shell:
-        '''
-        samtools merge -@ {threads} -n {output.bam} {input.bams}
-        '''
+        format_command('''
+        samtools merge -@ {threads} -n
+          {output.bam}
+          {input.bams};
+        ''')
 
 
 rule collapse_alignments:
@@ -287,13 +299,17 @@ rule collapse_alignments:
     conda:
         get_conda_env('snco')
     shell:
-        '''
-        collapse_ha_specific_alns.py \
-          -o {output.bam}.unsorted.bam {input.bam}
-        samtools sort -@ {threads} \
-          -T ${{TMPDIR}}/{wildcards.dataset_name} \
-          -o {output.bam} \
-          {output.bam}.unsorted.bam
-        samtools index {output.bam}
+        format_command('''
+        collapse_ha_specific_alns.py
+          -o {output.bam}.unsorted.bam
+          {input.bam};
+
+        samtools sort -@ {threads}
+          -T ${{TMPDIR}}/{wildcards.dataset_name}
+          -o {output.bam}
+          {output.bam}.unsorted.bam;
+
+        samtools index {output.bam};
+
         rm {output.bam}.unsorted.bam
-        '''
+        ''')

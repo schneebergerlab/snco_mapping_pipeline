@@ -22,12 +22,13 @@ rule remove_pcr_duplicates:
         get_conda_env('htslib')
     threads: 12
     shell:
-        '''
-        samtools markdup -r -@ {threads} \
-          --barcode-tag {params.cb_tag} \
-          {input.bam} {output.bam}
+        format_command('''
+        samtools markdup -r -@ {threads}
+          --barcode-tag {params.cb_tag}
+          {input.bam} {output.bam};
+
         samtools index {output.bam}
-        '''
+        ''')
 
 
 def filter_input(wc):
@@ -68,19 +69,21 @@ rule filter_informative_reads:
     resources:
         mem_mb=20_000
     shell:
-        '''
-        samtools view -b \
-          -e '[ha] != "{params.filter_tag}" && [{params.cb_tag}] != "-"' \
-          {input.bam} \
-        > {output.bam}
-        samtools index {output.bam}
-        samtools view --keep-tag "{params.cb_tag}" {output.bam} | \
-        awk '{{cb_count[substr($12, 6)]++}} \
-             END {{for (cb in cb_count) \
-                 {{if (cb_count[cb] > {params.min_reads}) \
-                 {{print cb}}}}}}' \
+        format_command('''
+        samtools view -b
+          -e '[ha] != "{params.filter_tag}" && [{params.cb_tag}] != "-"'
+          {input.bam}
+        > {output.bam};
+
+        samtools index {output.bam};
+
+        samtools view --keep-tag "{params.cb_tag}" {output.bam} |
+        awk '{{cb_count[substr($12, 6)]++}}
+             END {{for (cb in cb_count)
+                 {{if (cb_count[cb] > {params.min_reads})
+                 {{print cb}}}}}}'
         > {output.cb_whitelist}
-        '''
+        ''')
 
 
 def get_genotyping_params(wc):
@@ -99,44 +102,44 @@ def get_tech_specific_params(wc):
     tech_type = config['datasets'][wc.dataset_name]['technology']
     ploidy = config['datasets'][wc.dataset_name]['ploidy']
     if tech_type == "10x_atac":
-        params = f'''\
-          -x 10x_atac \
-          -y {ploidy} \
-          --cb-tag CB \
-          --hap-tag ha \
-          --hap-tag-type "multi_haplotype" \
-          --cb-correction-method "exact" \
-          --umi-collapse-method "none" \
-          --no-clean-bg \
+        params = f'''
+          -x 10x_atac
+          -y {ploidy}
+          --cb-tag CB
+          --hap-tag ha
+          --hap-tag-type "multi_haplotype"
+          --cb-correction-method "exact"
+          --umi-collapse-method "none"
+          --no-clean-bg
        '''
     elif tech_type in ("takara_dna", "plate_wgs"):
         x_flag = "wgs" if tech_type == "plate_wgs" else tech_type
-        params = f'''\
-          -x {x_flag} \
-          -y {ploidy} \
-          --cb-tag RG \
-          --hap-tag ha \
-          --hap-tag-type "multi_haplotype" \
-          --cb-correction-method "none" \
-          --no-validate \
-          --umi-collapse-method "none" \
-          --no-clean-bg \
-        '''
+        params = f'''
+          -x {x_flag}
+          -y {ploidy}
+          --cb-tag RG
+          --hap-tag ha
+          --hap-tag-type "multi_haplotype"
+          --cb-correction-method "none"
+          --no-validate
+          --umi-collapse-method "none"
+          --no-clean-bg
+          '''
         if tech_type == 'plate_wgs':
             params += '--no-predict-doublets'
     else:
         tech_type = '10x_rna' if tech_type.startswith('10x_rna') else 'bd_rna'
-        params = f'''\
-          -x {tech_type} \
-          -y {ploidy} \
-          --cb-tag CB \
-          --umi-tag UB \
-          --hap-tag ha \
-          --hap-tag-type "multi_haplotype" \
-          --cb-correction-method "exact" \
-          --umi-collapse-method "exact" \
+        params = f'''
+          -x {tech_type}
+          -y {ploidy}
+          --cb-tag CB
+          --umi-tag UB
+          --hap-tag ha
+          --hap-tag-type "multi_haplotype"
+          --cb-correction-method "exact"
+          --umi-collapse-method "exact"
        '''
-    return params
+    return format_command(params.lstrip())
 
 
 rule run_haplotyping:
@@ -164,24 +167,25 @@ rule run_haplotyping:
     resources:
         mem_mb=100_000
     shell:
-        '''
-        export OPENBLAS_NUM_THREADS=1
-        export OMP_NUM_THREADS=1
-        export MKL_NUM_THREADS=1
-        snco bam2pred -v debug -p {threads} \
-          --cb-whitelist-fn {input.cb_whitelist} \
-          -N {params.bin_size} \
-          -R {params.rfactor} \
-          -t {params.term_rfactor} \
-          -C {params.cm_per_mb} \
-          {params.tech_specific_params} \
-          --min-markers-per-cb {params.min_reads_per_cb} \
-          --min-markers-per-chrom {params.min_reads_per_chrom} \
-          --batch-size 128 \
-          {params.genotyping_params} \
-          -o {params.output_prefix} \
+        format_command('''
+        export OPENBLAS_NUM_THREADS=1;
+        export OMP_NUM_THREADS=1;
+        export MKL_NUM_THREADS=1;
+
+        snco bam2pred -v debug -p {threads}
+          --cb-whitelist-fn {input.cb_whitelist}
+          -N {params.bin_size}
+          -R {params.rfactor}
+          -t {params.term_rfactor}
+          -C {params.cm_per_mb}
+          {params.tech_specific_params}
+          --min-markers-per-cb {params.min_reads_per_cb}
+          --min-markers-per-chrom {params.min_reads_per_chrom}
+          --batch-size 128
+          {params.genotyping_params}
+          -o {params.output_prefix}
           {input.bam}
-        '''
+        ''')
 
 
 rule haplotyping_report:

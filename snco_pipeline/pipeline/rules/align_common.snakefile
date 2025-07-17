@@ -101,20 +101,20 @@ rule build_STAR_index:
     conda:
         get_conda_env('star')
     shell:
-        '''
-        mkdir {output}
-        STAR \
-          --outTmpDir _STARtmp_{wildcards.geno_group}.{wildcards.ref}.{wildcards.qry} \
-          --runThreadN {threads} \
-          --runMode genomeGenerate \
-          --genomeDir {output} \
-          --genomeFastaFiles {input.fasta} \
-          --sjdbGTFfile {input.gtf} \
-          {params.vcf_flag} \
-          {params.transform_flag} \
-          --genomeSAindexNbases {params.genome_sa_index_nbases} \
+        format_command('''
+        mkdir {output};
+        STAR
+          --outTmpDir _STARtmp_{wildcards.geno_group}.{wildcards.ref}.{wildcards.qry}
+          --runThreadN {threads}
+          --runMode genomeGenerate
+          --genomeDir {output}
+          --genomeFastaFiles {input.fasta}
+          --sjdbGTFfile {input.gtf}
+          {params.vcf_flag}
+          {params.transform_flag}
+          --genomeSAindexNbases {params.genome_sa_index_nbases}
           --sjdbOverhang {params.overhang}
-        '''
+        ''')
 
 
 def get_geno_group(dataset_name):
