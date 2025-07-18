@@ -11,7 +11,7 @@ def format_command(cmd):
         if not line.strip():
             continue
         elif re.search(';$', line):
-            formatted.append(f'{line}\n')
+            formatted.append(f'{line}\n\n')
         else:
             formatted.append(f'{line} \\\n')
     return ''.join(formatted).strip('\n').strip('\\')

@@ -13,6 +13,7 @@ get_gtf = gtf_getter(config)
 get_barcode_whitelist = barcode_whitelist_getter(config)
 get_conda_env = conda_env_getter(config)
 
+
 ref_genotypes = set()
 genotypes = set()
 for ds in config['datasets'].values():
