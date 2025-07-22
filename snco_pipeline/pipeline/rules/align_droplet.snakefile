@@ -59,10 +59,8 @@ def get_adapter_parameters(wc, input):
     Adapter parameters for the different sequencing modalities
     '''
     tech_type = config['datasets'][wc.dataset_name]['technology']
-    whitelist = ' '.join(f'${{RELPATH}}/{fn}' for fn in input.barcode_whitelist)
-    barcode_read_length = get_read_length(input.barcode[0])
     if tech_type == '10x_atac':
-        params = f'''
+        params = '''
           --soloType "CB_samTagOut"
           --soloCBwhitelist {whitelist}
           --soloBarcodeReadLength 0
@@ -70,11 +68,11 @@ def get_adapter_parameters(wc, input):
           --outSAMattributes "NH" "HI" "AS" "nM" "RG" "CB"
         '''
     elif tech_type.startswith('10x_rna'):
-        params = f'''
+        params = '''
           --soloType "CB_UMI_Simple"
           --soloCBwhitelist {whitelist}
           --soloBarcodeReadLength {barcode_read_length}
-          --soloUMIdedup {config["alignment"]["star"]["rna"]["umi_dedup_method"]}
+          --soloUMIdedup {umi_dedup_method}
           --soloCBmatchWLtype "1MM"
           --soloCBlen 16
           --soloCBstart 1
@@ -83,11 +81,11 @@ def get_adapter_parameters(wc, input):
           --outSAMattributes "NH" "HI" "AS" "nM" "RG" "CB" "UB"
         '''
     elif tech_type == 'bd_rna':
-        params = f'''
+        params = '''
           --soloType "CB_UMI_Complex"
           --soloCBwhitelist {whitelist}
           --soloBarcodeReadLength {barcode_read_length}
-          --soloUMIdedup {config["alignment"]["star"]["rna"]["umi_dedup_method"]}
+          --soloUMIdedup {umi_dedup_method}
           --soloAdapterSequence "NNNNNNNNNGTGANNNNNNNNNGACA"
           --soloCBmatchWLtype "1MM"
           --soloCBposition 2_0_2_8 2_13_2_21 3_1_3_9
@@ -96,6 +94,14 @@ def get_adapter_parameters(wc, input):
         '''
     else:
         raise NotImplementedError()
+
+    whitelist = ' '.join(f'${{RELPATH}}/{fn}' for fn in input.barcode_whitelist)
+    params = params.format(
+        whitelist=whitelist,
+        barcode_read_length=get_read_length(input.barcode[0]),
+        umi_dedup_method=config["alignment"]["star"]["rna"]["umi_dedup_method"],
+    )
+
     return format_command(params.lstrip())
 
 
@@ -150,18 +156,25 @@ def get_spliced_alignment_params(wc):
     '''splicing/fragment size parameters for STAR'''
     tech_type = config['datasets'][wc.dataset_name]['technology']
     if tech_type == "10x_atac":
-        params = f'''
+        params = '''
           --alignIntronMax 1
-          --alignMatesGapMax {config["alignment"]["star"]["atac"]["mates_gap_max"]}
+          --alignMatesGapMax {mates_gap_max}
         '''
     else:
-        params = f'''
-          --outFilterIntronMotifs RemoveNoncanonical \
-          --alignSJoverhangMin {config["alignment"]["star"]["rna"]["align_sj_overhang_min"]}
-          --alignSJDBoverhangMin {config["alignment"]["star"]["rna"]["align_sjdb_overhang_min"]}
-          --alignIntronMin {config["alignment"]["star"]["rna"]["align_intron_min"]}
-          --alignIntronMax {config["alignment"]["star"]["rna"]["align_intron_max"]}
+        params = '''
+          --outFilterIntronMotifs RemoveNoncanonical
+          --alignSJoverhangMin {align_sj_overhang_min}
+          --alignSJDBoverhangMin {align_sjdb_overhang_min}
+          --alignIntronMin {align_intron_min}
+          --alignIntronMax {align_intron_max}
         '''
+    params.format(
+        mates_gap_max=config["alignment"]["star"]["atac"]["mates_gap_max"],
+        align_sj_overhang_min=config["alignment"]["star"]["rna"]["align_sj_overhang_min"],
+        align_sjdb_overhang_min=config["alignment"]["star"]["rna"]["align_sjdb_overhang_min"],
+        align_intron_min=config["alignment"]["star"]["rna"]["align_intron_min"],
+        align_intron_max=config["alignment"]["star"]["rna"]["align_intron_max"]
+    )
     return format_command(params.lstrip())
 
 
