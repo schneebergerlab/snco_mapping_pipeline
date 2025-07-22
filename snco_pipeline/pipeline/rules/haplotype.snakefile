@@ -100,10 +100,9 @@ def get_genotyping_params(wc):
 
 def get_tech_specific_params(wc):
     tech_type = config['datasets'][wc.dataset_name]['technology']
-    ploidy = config['datasets'][wc.dataset_name]['ploidy']
     if tech_type == "10x_atac":
         params = '''
-          -x 10x_atac
+          -x {x_flag}
           -y {ploidy}
           --cb-tag CB
           --hap-tag ha
@@ -111,9 +110,8 @@ def get_tech_specific_params(wc):
           --cb-correction-method "exact"
           --umi-collapse-method "none"
           --no-clean-bg
-       '''.format(ploidy=ploidy)
+       '''
     elif tech_type in ("takara_dna", "plate_wgs"):
-        x_flag = "wgs" if tech_type == "plate_wgs" else tech_type
         params = '''
           -x {x_flag}
           -y {ploidy}
@@ -124,13 +122,12 @@ def get_tech_specific_params(wc):
           --no-validate
           --umi-collapse-method "none"
           --no-clean-bg
-          '''.format(x_flag=x_flag, ploidy=ploidy)
+          '''
         if tech_type == 'plate_wgs':
             params += '--no-predict-doublets'
     else:
-        tech_type = '10x_rna' if tech_type.startswith('10x_rna') else 'bd_rna'
         params = '''
-          -x {tech_type}
+          -x {x_flag}
           -y {ploidy}
           --cb-tag CB
           --umi-tag UB
@@ -138,7 +135,19 @@ def get_tech_specific_params(wc):
           --hap-tag-type "multi_haplotype"
           --cb-correction-method "exact"
           --umi-collapse-method "exact"
-       '''.format(tech_type=tech_type, ploidy=ploidy)
+       '''
+
+    if tech_type.startswith('10x_rna'):
+        x_flag = '10x_rna'
+    elif tech_type == 'plate_wgs':
+        x_flag = 'wgs'
+    else:
+        x_flag = tech_type
+    params = params.format(
+        x_flag=x_flag,
+        ploidy=config['datasets'][wc.dataset_name]['ploidy']
+    )
+
     return format_command(params.lstrip())
 
 
