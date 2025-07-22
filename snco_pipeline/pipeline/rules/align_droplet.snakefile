@@ -62,38 +62,46 @@ def get_adapter_parameters(wc, input):
     whitelist = ' '.join(f'${{RELPATH}}/{fn}' for fn in input.barcode_whitelist)
     barcode_read_length = get_read_length(input.barcode[0])
     if tech_type == '10x_atac':
-        params = f'''
+        params = '''
           --soloType "CB_samTagOut"
           --soloCBwhitelist {whitelist}
           --soloBarcodeReadLength 0
           --soloCBmatchWLtype "1MM"
           --outSAMattributes "NH" "HI" "AS" "nM" "RG" "CB"
-        '''
+        '''.format(whitelist=whitelist)
     elif tech_type.startswith('10x_rna'):
-        params = f'''
+        params = '''
           --soloType "CB_UMI_Simple"
           --soloCBwhitelist {whitelist}
           --soloBarcodeReadLength {barcode_read_length}
-          --soloUMIdedup {config["alignment"]["star"]["rna"]["umi_dedup_method"]}
+          --soloUMIdedup {umi_dedup_method}
           --soloCBmatchWLtype "1MM"
           --soloCBlen 16
           --soloCBstart 1
           --soloUMIlen 12
           --soloUMIstart 17
           --outSAMattributes "NH" "HI" "AS" "nM" "RG" "CB" "UB"
-        '''
+        '''.format(
+            whitelist=whitelist,
+            barcode_read_length=barcode_read_length,
+            umi_dedup_method=config["alignment"]["star"]["rna"]["umi_dedup_method"]
+        )
     elif tech_type == 'bd_rna':
-        params = f'''
+        params = '''
           --soloType "CB_UMI_Complex"
           --soloCBwhitelist {whitelist}
           --soloBarcodeReadLength {barcode_read_length}
-          --soloUMIdedup {config["alignment"]["star"]["rna"]["umi_dedup_method"]}
+          --soloUMIdedup {umi_dedup_method}
           --soloAdapterSequence "NNNNNNNNNGTGANNNNNNNNNGACA"
           --soloCBmatchWLtype "1MM"
           --soloCBposition 2_0_2_8 2_13_2_21 3_1_3_9
           --soloUMIposition 3_10_3_17
           --outSAMattributes "NH" "HI" "AS" "nM" "RG" "CB" "UB"
-        '''
+        '''.format(
+            whitelist=whitelist,
+            barcode_read_length=barcode_read_length,
+            umi_dedup_method=config["alignment"]["star"]["rna"]["umi_dedup_method"]
+        )
     else:
         raise NotImplementedError()
     return format_command(params.lstrip())
