@@ -168,7 +168,7 @@ def get_spliced_alignment_params(wc):
           --alignIntronMin {align_intron_min}
           --alignIntronMax {align_intron_max}
         '''
-    params.format(
+    params = params.format(
         mates_gap_max=config["alignment"]["star"]["atac"]["mates_gap_max"],
         align_sj_overhang_min=config["alignment"]["star"]["rna"]["align_sj_overhang_min"],
         align_sjdb_overhang_min=config["alignment"]["star"]["rna"]["align_sjdb_overhang_min"],

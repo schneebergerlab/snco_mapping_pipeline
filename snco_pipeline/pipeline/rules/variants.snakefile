@@ -81,7 +81,7 @@ rule run_syri:
         vcf=annotation('vcf/syri/{ref}.{qry}.syri.vcf'),
         syri=annotation('vcf/syri/{ref}.{qry}.syri.out'),
     resources:
-        mem_mb=lambda wc, threads: 1024 * threads,
+        mem_mb=5_000,
     conda:
         get_conda_env('msyd')
     params:
@@ -147,9 +147,11 @@ rule run_msyd:
         vcf=annotation(r'vcf/msyd/{geno_group,\w+}.vcf'),
     conda:
         get_conda_env('msyd')
+    threads: lambda wc, input: min((len(input.bams) + 1) // 2, 12)
     shell:
         format_command('''
-        msyd call --core
+        msyd call -c {threads} --core
+          --impute
           -i {input.cfg}
           -r {input.ref_fasta}
           -o {output.pff}
