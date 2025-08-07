@@ -175,6 +175,10 @@ rule run_haplotyping:
         get_conda_env('snco')
     params:
         bin_size=config['haplotyping']['snco']['genomic_bin_size'],
+        max_frac_bg=config['haplotyping']['preprocessing'].get('max_fraction_background', 0.25),
+        min_geno_prob=config['haplotyping']['preprocessing'].get('min_genotyping_probability', 0.9),
+        max_geno_error=config['haplotyping']['preprocessing'].get('max_genotyping_error_rate', 0.25),
+        max_marker_imbalance=config['haplotyping']['preprocessing'].get('max_marker_imbalance', 0.75),
         rfactor=config['haplotyping']['snco']['segment_size'],
         term_rfactor=config['haplotyping']['snco']['terminal_segment_size'],
         cm_per_mb=config['haplotyping']['snco']['cm_per_mb'],
@@ -203,6 +207,10 @@ rule run_haplotyping:
           {params.tech_specific_params}
           --min-markers-per-cb {params.min_reads_per_cb}
           --min-markers-per-chrom {params.min_reads_per_chrom}
+          --min-genotyping-prob {params.min_geno_prob}
+          --max-genotyping-error {params.max_geno_error}
+          --max-frac-bg {params.max_frac_bg}
+          --max-marker-imbalance {params.max_marker_imbalance}
           --batch-size 128
           {params.genotyping_params}
           -o {params.output_prefix}

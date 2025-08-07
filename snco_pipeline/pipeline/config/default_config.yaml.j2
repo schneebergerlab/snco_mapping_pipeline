@@ -122,6 +122,13 @@ haplotyping:
     filter_pcr_duplicates: False # this is only used for data that does not have UMIs
     min_informative_reads_per_barcode: 100 # The min number of reads that uniquely distinguish the two haplotypes that a barcode must have
     min_informative_reads_per_chrom: 20 # The min number of haplotype-distinguishing reads per-barcode/sample per-chromosome
+    min_genotyping_probability: 0.9 # The minimum probability for the assigned genotype (when multiple genotypes are pooled in a dataset).
+    max_genotyping_error_rate: 0.25 # The maximum error/noise rate estimated during genotyping.
+    max_fraction_background: 0.25 # the maximum error/noise rate estimated during haplotyping.
+    max_marker_imbalance: 0.75 # The maximum marker imbalance between the two haplotypes allowed in each bin (across the whole dataset), before the bin is masked
+                               # NB this value should be increased when strong genuine segregation distortion is observed
+    
+    
   snco:
     genomic_bin_size: 25_000 # Bin size for marker distribution
     segment_size: 1_000_000 # rfactor of the rigid HMM. Approximately controls minimum distance between COs
