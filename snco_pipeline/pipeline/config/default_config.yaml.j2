@@ -19,6 +19,10 @@ annotations:
       # one vcf should be supplied per reference_genotype (listed in datasets)
       # the vcfs should have haploid samples with the same names as the non-reference parent1/parent2 genotypes
       {{ reference_genotype | default('col0')}}: null
+    mask_bed_fns:
+      # if supplied, this bed file contains regions that will be masked during marker cleaning for snco.
+      # useful if locations of noise markers, e.g. centromeres, are known
+      {{ reference_genotype | default('col0')}}: null
 
 
 # input fastq files will be searched for within this directory

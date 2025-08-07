@@ -86,6 +86,19 @@ rule filter_informative_reads:
         ''')
 
 
+def get_haplotyping_input(wc):
+    input_ = {
+        'bam': results('aligned_data/{dataset_name}.filtered.bam'),
+        'bai': results('aligned_data/{dataset_name}.filtered.bam.bai'),
+        'cb_whitelist': results('aligned_data/{dataset_name}.initial_whitelist.txt')
+    }
+    ref = config['datasets'][wc.dataset_name]['reference_genotype']
+    mask_bed_fn = config['annotations']['mask_bed_fns'][ref]
+    if mask_bed_fn is not None:
+        input_['bed'] = annotation(mask_bed_fn)
+    return input_
+
+
 def get_genotyping_params(wc):
     dataset = config['datasets'][wc.dataset_name]
     crosses = []
@@ -153,9 +166,7 @@ def get_tech_specific_params(wc):
 
 rule run_haplotyping:
     input:
-        bam=results('aligned_data/{dataset_name}.filtered.bam'),
-        bai=results('aligned_data/{dataset_name}.filtered.bam.bai'),
-        cb_whitelist=results('aligned_data/{dataset_name}.initial_whitelist.txt')
+        unpack(get_haplotyping_input)
     output:
         markers=results('haplotypes/{dataset_name}.markers.json'),
         preds=results('haplotypes/{dataset_name}.pred.json'),
@@ -167,6 +178,7 @@ rule run_haplotyping:
         rfactor=config['haplotyping']['snco']['segment_size'],
         term_rfactor=config['haplotyping']['snco']['terminal_segment_size'],
         cm_per_mb=config['haplotyping']['snco']['cm_per_mb'],
+        mask_bed_flag=lambda wc, input: f'-m {input.bed}' if hasattr(input, 'bed') else '',
         genotyping_params=get_genotyping_params,
         tech_specific_params=get_tech_specific_params,
         min_reads_per_cb=config['haplotyping']['preprocessing']['min_informative_reads_per_barcode'],
@@ -183,6 +195,7 @@ rule run_haplotyping:
 
         snco bam2pred -v debug -p {threads}
           --cb-whitelist-fn {input.cb_whitelist}
+          {params.mask_bed_flag}
           -N {params.bin_size}
           -R {params.rfactor}
           -t {params.term_rfactor}
