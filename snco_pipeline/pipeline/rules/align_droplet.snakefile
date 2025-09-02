@@ -266,7 +266,7 @@ def get_merge_input(wc):
     '''Expand all haplotypes that have been aligned to for a dataset to create merge input'''
     dataset = config['datasets'][wc.dataset_name]
     qrys = set()
-    for geno in dataset['genotypes'].values():
+    for geno in dataset['genotypes']['founder_haplotypes'].values():
         for qry in geno.values():
             qrys.add(qry)
     return {

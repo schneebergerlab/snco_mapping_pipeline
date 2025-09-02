@@ -141,7 +141,7 @@ def get_merge_haps_input(wc):
     dataset_name = SAMPLE_NAME_DATASET_MAPPING[wc.sample_name]
     dataset = config['datasets'][dataset_name]
     qrys = set()
-    for geno in dataset['genotypes'].values():
+    for geno in dataset['genotypes']['founder_haplotypes'].values():
         for qry in geno.values():
             qrys.add(qry)
     return expand(
