@@ -19,12 +19,12 @@ genotypes = set()
 for ds in config['datasets'].values():
     ref_genotypes.add(ds['reference_genotype'])
     for geno in ds['genotypes'].values():
-        genotypes.update(list(geno.values()))
+        genotypes.update(list(geno['founder_haplotypes'].values()))
 
 
 wildcard_constraints:
     dataset_name='|'.join(config['datasets']),
-    dataset_name_plus_optional_haplo='(?:' + '|'.join(config['datasets']) + ')_hap[12]'
+    dataset_name_plus_optional_haplo='(?:' + '|'.join(config['datasets']) + ')(?:_hap[12])?',
     sample_name=r'\w+',
     ref='|'.join(ref_genotypes),
     qry='|'.join(genotypes),
@@ -47,24 +47,24 @@ include: "rules/haplotype.snakefile"
 
 
 def all_results():
-    results = []
+    result_fns = []
     for dataset_name, ds_conf in config['datasets'].items():
         if ds_conf['ploidy'] != 'diploid_f1*f1':
-            results += expand(
+            result_fns += expand(
                 [results('haplotypes/{dataset_name}.{file_type}.json'),
                  results('analysis/{dataset_name}.haplotyping_report.py.ipynb')],
                 dataset_name=dataset_name,
                 file_type=['markers', 'pred'],
             )
         else:
-            results += expand(
+            result_fns += expand(
                 [results('haplotypes/{dataset_name}_{haplo}.{file_type}.json'),
                  results('analysis/{dataset_name}_{haplo}.haplotyping_report.py.ipynb')],
                 dataset_name=dataset_name,
                 haplo=['hap1', 'hap2'],
                 file_type=['markers', 'pred'],
             )
-    return results
+    return result_fns
 
 
 rule all:

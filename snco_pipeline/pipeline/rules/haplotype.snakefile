@@ -52,7 +52,7 @@ def get_filter_tag(wc):
     dataset = config['datasets'][wc.dataset_name]
     all_haplos = set()
     for geno in dataset['genotypes'].values():
-        all_haplos.update(list(geno.values()))
+        all_haplos.update(list(geno['founder_haplotypes'].values()))
     return ','.join(sorted(all_haplos))
 
 
@@ -95,7 +95,7 @@ def get_hap_filter_exprs(wc):
         raise ValueError(
             'Cannot split haplotypes for ploidy "diploid_f1*f1" when there is more than one genotype in dataset'
         )
-    haps = genos[list(genos)[0]]
+    haps = genos[list(genos)[0]]['founder_haplotypes']
     if wc.haplo == 'hap1':
         return f'\'[ha] == "{haps["parent1"]}" || [ha] == "{haps["parent2"]}"\''
     elif wc.haplo == 'hap2':
@@ -167,13 +167,13 @@ def get_genotyping_params(wc):
     dataset_name, haplo = parse_dataset_name(wc.dataset_name_plus_optional_haplo)
     dataset = config['datasets'][dataset_name]
     ploidy_mode = dataset['ploidy']
+    genos = dataset['genotypes']
     if ploidy_mode != 'haploid_f1*f1':
         crosses = []
         if ploidy_mode != 'diploid_f1*f1':
             for geno in dataset['genotypes'].values():
                 crosses.append(':'.join(sorted(geno['founder_haplotypes'].values())))
         else:
-            genos = dataset['genotypes']
             if len(genos) > 1:
                 raise ValueError(
                     'Cannot split haplotypes for ploidy "diploid_f1*f1" when there is more than one genotype in dataset'
@@ -243,7 +243,7 @@ def get_tech_specific_params(wc):
     else:
         x_flag = tech_type
     ploidy = config['datasets'][dataset_name]['ploidy']
-    if ploidy == 'diploid_f1*f1':
+    if ploidy == 'diploid_f1*f1' or ploidy.startswith('haploid'):
         # switch to haploid since haplotypes have already been separated
         ploidy = 'haploid'
     params = params.format(
