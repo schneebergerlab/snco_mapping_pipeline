@@ -253,12 +253,16 @@ rule sort_bam_by_name:
     threads: 12
     resources:
         mem_mb=20_000,
+        threads_per_cmd=lambda wc, threads: threads // 2
     conda:
         get_conda_env('htslib')
     shell:
         format_command('''
-        samtools sort -n -@ {threads} {input.bam} |
-        samtools fixmate -m - {output.bam};
+        samtools sort
+          -T ${{TMPDIR}}/{wildcards.dataset_name}.{wildcards.qry}
+          -n -@ {resources.threads_per_cmd}
+          {input.bam} |
+        samtools fixmate -@ {resources.threads_per_cmd} -m - {output.bam};
         ''')
 
 

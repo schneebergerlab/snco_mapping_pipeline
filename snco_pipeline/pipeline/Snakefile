@@ -24,6 +24,7 @@ for ds in config['datasets'].values():
 
 wildcard_constraints:
     dataset_name='|'.join(config['datasets']),
+    haplo='hap1|hap2',
     dataset_name_plus_optional_haplo='(?:' + '|'.join(config['datasets']) + ')(?:_hap[12])?',
     sample_name=r'\w+',
     ref='|'.join(ref_genotypes),

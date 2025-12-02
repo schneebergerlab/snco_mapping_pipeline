@@ -71,16 +71,17 @@ rule filter_informative_reads:
         min_reads=config['haplotyping']['preprocessing']['min_informative_reads_per_barcode'],
     resources:
         mem_mb=20_000
+    threads: 4
     shell:
         format_command('''
-        samtools view -b
+        samtools view -b -@ {threads}
           -e '[ha] != "{params.filter_tag}" && [{params.cb_tag}] != "-"'
           {input.bam}
         > {output.bam};
 
         samtools index {output.bam};
 
-        samtools view --keep-tag "{params.cb_tag}" {output.bam} |
+        samtools view -@ {threads} --keep-tag "{params.cb_tag}" {output.bam} |
         awk '{{cb_count[substr($12, 6)]++}}
              END {{for (cb in cb_count)
                  {{if (cb_count[cb] > {params.min_reads})
@@ -163,7 +164,7 @@ def get_haplotyping_input(wc):
     return input_
 
 
-def get_genotyping_params(wc):
+def get_genotyping_params(wc, input):
     dataset_name, haplo = parse_dataset_name(wc.dataset_name_plus_optional_haplo)
     dataset = config['datasets'][dataset_name]
     ploidy_mode = dataset['ploidy']
@@ -190,10 +191,9 @@ def get_genotyping_params(wc):
         return genotype_params + ','.join(crosses)
     else:
         # special haploid_f1*f1 mode, provide haplotype jsons for genotyping
-        hap_fns = genos[list(genos)[0]]['recombinant_haplotypes']
-        parent12_hap_fn = hap_fns['parent12']
-        parent34_hap_fn = hap_fns['parent34']
-        return f'--genotype --recombinant-parent-jsons {parent12_hap_fn} {parent34_hap_fn}'
+        parent12_hap_fn = input.hap1_json_fn
+        parent34_hap_fn = input.hap2_json_fn
+        return f'--genotype --clean-by-genotype --recombinant-parent-jsons {parent12_hap_fn} {parent34_hap_fn}'
 
 
 def get_tech_specific_params(wc):
@@ -257,7 +257,8 @@ rule run_haplotyping:
     input:
         unpack(get_haplotyping_input)
     output:
-        markers=results('haplotypes/{dataset_name_plus_optional_haplo}.markers.json'),
+        markers_init=results('haplotypes/{dataset_name_plus_optional_haplo}.markers_init.json'),
+        markers_filt=results('haplotypes/{dataset_name_plus_optional_haplo}.markers_filt.json'),
         preds=results('haplotypes/{dataset_name_plus_optional_haplo}.pred.json'),
         stats=results('haplotypes/{dataset_name_plus_optional_haplo}.pred.stats.tsv'),
     conda:
@@ -277,9 +278,9 @@ rule run_haplotyping:
         min_reads_per_cb=config['haplotyping']['preprocessing']['min_informative_reads_per_barcode'],
         min_reads_per_chrom=config['haplotyping']['preprocessing']['min_informative_reads_per_chrom'],
         output_prefix=lambda wc: results(f'haplotypes/{wc.dataset_name_plus_optional_haplo}')
-    threads: 32
+    threads: 50
     resources:
-        mem_mb=100_000
+        mem_mb=150_000
     shell:
         format_command('''
         export OPENBLAS_NUM_THREADS=1;
@@ -309,7 +310,8 @@ rule run_haplotyping:
 
 rule haplotyping_report:
     input:
-        markers=results('haplotypes/{dataset_name_plus_optional_haplo}.markers.json'),
+        markers_init=results('haplotypes/{dataset_name_plus_optional_haplo}.markers_init.json'),
+        markers_filt=results('haplotypes/{dataset_name_plus_optional_haplo}.markers_filt.json'),
         preds=results('haplotypes/{dataset_name_plus_optional_haplo}.pred.json'),
         stats=results('haplotypes/{dataset_name_plus_optional_haplo}.pred.stats.tsv'),
     log:
