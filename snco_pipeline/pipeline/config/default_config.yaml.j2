@@ -40,7 +40,9 @@ datasets:
     # NB: datasets from "10x_rna_v3", "10x_rna_v4", "10x_atac", "bd_rna" can be mixed in same pipeline run, but 
     # NB: "takara_dna" and "plate_wgs" require their own separate runs 
     technology: "{{ single_cell_method | default('10x_rna_v4')}}"
-    # the expected ploidy of each individual. Can be "haploid", "diploid_bc1" or "diploid_f2"
+    # the expected ploidy of each individual. Can be "haploid_f1", "haploid_f1*f1", "diploid_bc1", "diploid_f2", or "diploid_f1*f1"
+    # NB: when mode is "diploid_f1*f1", only one genotype can be provided, and four parents must be provided
+    # NB: when mode is "haploid_f1*f1", only one genotype can be provided, and parent1 and parent2 should be json files containing the recombinant haplotypes of the parents
     ploidy: "haploid"
     # the genotype used as the reference genome in mapping
     reference_genotype: "{{ reference_genotype | default('col0')}}"
@@ -56,8 +58,14 @@ datasets:
     genotypes:
       # you can add one or more different genotypes that have been pooled in the dataset
       {{ dataset_genotype_name | default('col0xler')}}:
-        parent1: "{{ parent1_name | default('col0')}}"
-        parent2: "{{ parent2_name | default('ler')}}"
+        founder_haplotypes:
+          parent1: "{{ parent1_name | default('col0')}}"
+          parent2: "{{ parent2_name | default('ler')}}"
+          #parent3: null # uncomment and add if using "diploid_f1*f1" or "haploid_f1*f1" ploidy modes
+          #parent4: null # crossing strategy will be assumed to be (parent1 * parent2) * (parent3 * parent4)
+        recombinant_haplotypes:
+          parent12: null # add a file path if using "haploid_f1*f1" ploidy mode
+          parent34: null # these should be snco pred json files containing the recombinant haplotypes
 
 
 file_suffixes:

@@ -123,7 +123,7 @@ def get_geno_group(dataset_name):
     ref = dataset['reference_genotype']
     qry_names = set()
     for geno in dataset['genotypes'].values():
-        for qry in geno.values():
+        for qry in geno['founder_haplotypes'].values():
             if qry != ref:
                 qry_names.add(qry)
     qry_names = '_'.join(sorted(qry_names))

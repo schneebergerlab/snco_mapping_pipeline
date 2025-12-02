@@ -142,7 +142,7 @@ def get_merge_haps_input(wc):
     dataset = config['datasets'][dataset_name]
     qrys = set()
     for geno in dataset['genotypes'].values():
-        for qry in geno.values():
+        for qry in geno['founder_haplotypes'].values():
             qrys.add(qry)
     return expand(
         results('aligned_data/single_barcodes/haploid/{sample_name}.{qry}.namesorted.bam'),

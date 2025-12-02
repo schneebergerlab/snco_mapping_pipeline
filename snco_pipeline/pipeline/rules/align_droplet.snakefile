@@ -253,12 +253,16 @@ rule sort_bam_by_name:
     threads: 12
     resources:
         mem_mb=20_000,
+        threads_per_cmd=lambda wc, threads: threads // 2
     conda:
         get_conda_env('htslib')
     shell:
         format_command('''
-        samtools sort -n -@ {threads} {input.bam} |
-        samtools fixmate -m - {output.bam};
+        samtools sort
+          -T ${{TMPDIR}}/{wildcards.dataset_name}.{wildcards.qry}
+          -n -@ {resources.threads_per_cmd}
+          {input.bam} |
+        samtools fixmate -@ {resources.threads_per_cmd} -m - {output.bam};
         ''')
 
 
@@ -267,7 +271,7 @@ def get_merge_input(wc):
     dataset = config['datasets'][wc.dataset_name]
     qrys = set()
     for geno in dataset['genotypes'].values():
-        for qry in geno.values():
+        for qry in geno['founder_haplotypes'].values():
             qrys.add(qry)
     return {
         'bams': expand(results('aligned_data/haploid/{dataset_name}.{qry}.namesorted.bam'),
