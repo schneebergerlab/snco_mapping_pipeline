@@ -55,7 +55,7 @@ def all_results():
                 [results('haplotypes/{dataset_name}.{file_type}.json'),
                  results('analysis/{dataset_name}.haplotyping_report.py.ipynb')],
                 dataset_name=dataset_name,
-                file_type=['markers', 'pred'],
+                file_type=['markers_init', 'markers_filt', 'pred'],
             )
         else:
             result_fns += expand(
@@ -63,7 +63,7 @@ def all_results():
                  results('analysis/{dataset_name}_{haplo}.haplotyping_report.py.ipynb')],
                 dataset_name=dataset_name,
                 haplo=['hap1', 'hap2'],
-                file_type=['markers', 'pred'],
+                file_type=['markers_init', 'markers_filt', 'pred'],
             )
     return result_fns
 
