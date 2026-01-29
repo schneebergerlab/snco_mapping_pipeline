@@ -5,6 +5,8 @@
   <img src="images/logo.png" alt="" width=600 />
 </picture>
 
+#### (formerly known as `snco_mapping_pipeline`)
+
 A snakemake pipeline for mapping reads from various types of plate or droplet-based single-cell platforms, for crossover/haplotyping analysis using `coelsch`. The main coelsch tool repo is available [here](https://www.github.com/schneebergerlab/coelsch.git).
 
 Several droplet-based single-cell modalities are currently supported, including 10x 3' RNA v3 and v4, as well as BD Rhapsody 3' RNA and 10x ATAC. For these datasets one or more pairs of fastq files containing reads from all barcodes should be supplied.
