@@ -41,7 +41,7 @@ def cli():
 
 
 @cli.command("init")
-@click.argument("destination", type=click.Path(), default='snco_mapping_config.yaml')
+@click.argument("destination", type=click.Path(), default='coelsch_mapping_config.yaml')
 @click.option("-f", "--force", is_flag=True, default=False)
 def init_config(destination, force):
     """Prompt for missing values and render config.yaml from template."""
@@ -82,7 +82,7 @@ def init_config(destination, force):
 
 
 @cli.command("run", context_settings={"ignore_unknown_options": True, "allow_extra_args": True})
-@click.option("--configfile", "-c", type=click.Path(exists=True), default="snco_mapping_config.yaml",
+@click.option("--configfile", "-c", type=click.Path(exists=True), default="coelsch_mapping_config.yaml",
               help="Path to config file")
 @click.pass_context
 def run_pipeline(ctx, configfile):

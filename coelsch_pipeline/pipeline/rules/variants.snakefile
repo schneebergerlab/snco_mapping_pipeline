@@ -164,6 +164,7 @@ rule run_msyd:
         grep -v "^##ALT" |
         grep -v "^##INFO" |
         bcftools sort |
+        bcftools norm --multiallelics "+any" |
         bcftools filter -S0 -e 'GT=="."' > {output.vcf};
 
         rm {output.vcf}.tmp.vcf;

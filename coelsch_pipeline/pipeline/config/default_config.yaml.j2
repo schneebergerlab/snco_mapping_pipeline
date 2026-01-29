@@ -20,7 +20,7 @@ annotations:
       # the vcfs should have haploid samples with the same names as the non-reference parent1/parent2 genotypes
       {{ reference_genotype | default('col0')}}: null
     mask_bed_fns:
-      # if supplied, this bed file contains regions that will be masked during marker cleaning for snco.
+      # if supplied, this bed file contains regions that will be masked during marker cleaning for coelsch.
       # useful if locations of noise markers, e.g. centromeres, are known
       {{ reference_genotype | default('col0')}}: null
 
@@ -65,7 +65,7 @@ datasets:
           #parent4: null # crossing strategy will be assumed to be (parent1 * parent2) * (parent3 * parent4)
         recombinant_haplotypes:
           parent12: null # add a file path if using "haploid_f1*f1" ploidy mode
-          parent34: null # these should be snco pred json files containing the recombinant haplotypes
+          parent34: null # these should be coelsch pred json files containing the recombinant haplotypes
 
 
 file_suffixes:
@@ -86,7 +86,7 @@ conda_envs:
   seqtk: null # environment used for rules involving seqtk
   msyd: null # environment used for rules involving syri and msyd (see https://github.com/schneebergerlab)
   star: null # environment used for rules involving STAR, requires STAR=2.7.11a
-  snco: null # environment used for rules involving snco, also requires seaborn, ipykernel, nbconvert
+  coelsch: null # environment used for rules involving coelsch, also requires seaborn, ipykernel, nbconvert
 
 
 ### PIPELINE PARAMS:
@@ -137,7 +137,7 @@ haplotyping:
                                # NB this value should be increased when strong genuine segregation distortion is observed
     
     
-  snco:
+  coelsch:
     genomic_bin_size: 25_000 # Bin size for marker distribution
     segment_size: 1_000_000 # rfactor of the rigid HMM. Approximately controls minimum distance between COs
     terminal_segment_size: 50_000 # terminal rfactor of the rigid HMM. approx. controls min distance of COs from chromosome ends
