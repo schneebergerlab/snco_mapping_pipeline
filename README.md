@@ -1,4 +1,9 @@
-# `coelsch` mapping pipeline
+<picture>
+  <source
+    srcset="images/logo.png"
+    media="(orientation: portrait)" />
+  <img src="images/logo.png" alt="" width=600 />
+</picture>
 
 A snakemake pipeline for mapping reads from various types of plate or droplet-based single-cell platforms, for crossover/haplotyping analysis using `coelsch`. The main coelsch tool repo is available [here](https://www.github.com/schneebergerlab/coelsch.git).
 
