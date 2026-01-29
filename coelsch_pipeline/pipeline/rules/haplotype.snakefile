@@ -262,16 +262,16 @@ rule run_haplotyping:
         preds=results('haplotypes/{dataset_name_plus_optional_haplo}.pred.json'),
         stats=results('haplotypes/{dataset_name_plus_optional_haplo}.pred.stats.tsv'),
     conda:
-        get_conda_env('snco')
+        get_conda_env('coelsch')
     params:
-        bin_size=config['haplotyping']['snco']['genomic_bin_size'],
+        bin_size=config['haplotyping']['coelsch']['genomic_bin_size'],
         max_frac_bg=config['haplotyping']['preprocessing'].get('max_fraction_background', 0.25),
         min_geno_prob=config['haplotyping']['preprocessing'].get('min_genotyping_probability', 0.9),
         max_geno_error=config['haplotyping']['preprocessing'].get('max_genotyping_error_rate', 0.25),
         max_marker_imbalance=config['haplotyping']['preprocessing'].get('max_marker_imbalance', 0.75),
-        rfactor=config['haplotyping']['snco']['segment_size'],
-        term_rfactor=config['haplotyping']['snco']['terminal_segment_size'],
-        cm_per_mb=config['haplotyping']['snco']['cm_per_mb'],
+        rfactor=config['haplotyping']['coelsch']['segment_size'],
+        term_rfactor=config['haplotyping']['coelsch']['terminal_segment_size'],
+        cm_per_mb=config['haplotyping']['coelsch']['cm_per_mb'],
         mask_bed_flag=lambda wc, input: f'-m {input.bed}' if hasattr(input, 'bed') else '',
         genotyping_params=get_genotyping_params,
         tech_specific_params=get_tech_specific_params,
@@ -287,7 +287,7 @@ rule run_haplotyping:
         export OMP_NUM_THREADS=1;
         export MKL_NUM_THREADS=1;
 
-        snco bam2pred -v debug -p {threads}
+        coelsch bam2pred -v debug -p {threads}
           --cb-whitelist-fn {input.cb_whitelist}
           {params.mask_bed_flag}
           -N {params.bin_size}
@@ -317,6 +317,6 @@ rule haplotyping_report:
     log:
         notebook=results('analysis/{dataset_name_plus_optional_haplo}.haplotyping_report.py.ipynb')
     conda:
-        get_conda_env('snco')
+        get_conda_env('coelsch')
     notebook:
         '../notebook_templates/haplotyping_report.py.ipynb'

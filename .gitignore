@@ -1,5 +1,5 @@
 # annotations (they're too big
-snco_pipeline/pipeline/annotations/*.txt
+coelsch_pipeline/pipeline/annotations/*.txt
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

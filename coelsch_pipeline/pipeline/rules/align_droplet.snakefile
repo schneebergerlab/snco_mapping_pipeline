@@ -302,7 +302,7 @@ rule merge_name_sorted_bams:
 
 rule collapse_alignments:
     '''
-    Uses snco script collapse_ha_specific_alns.py to select the best haplotype alignment(s) for each read
+    Uses coelsch script collapse_ha_specific_alns.py to select the best haplotype alignment(s) for each read
     and outputs a single alignment with a new ha tag that indicates which haplotype(s) is/are best
     '''
     input:
@@ -314,7 +314,7 @@ rule collapse_alignments:
         mem_mb=20_000,
     threads: 12
     conda:
-        get_conda_env('snco')
+        get_conda_env('coelsch')
     shell:
         format_command('''
         collapse_ha_specific_alns.py
